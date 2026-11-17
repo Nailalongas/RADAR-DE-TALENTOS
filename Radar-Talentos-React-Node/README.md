@@ -63,6 +63,14 @@ npm test
 - `GET /api/evolution?personId=&name=` — Histórico isolado por talento.
 - `GET /api/audience/map` e `GET /api/audience/distribution` — Concentração geográfica de audiência.
 - `GET /api/events/trends`, `GET /api/events/rankings` e `GET /api/events/calendar` — Tendências de eventos publicados por modalidade, submodalidade, cidade, plataforma e mês.
-- `GET /api/opportunities` — Matriz de oportunidades (Audiência × Oferta de eventos).
+- `GET /api/opportunities` — Radar de oportunidades Fase 5 (cruzamento Audiência × Oferta com controle de cobertura `event_coverage`) e Matriz de oportunidades.
 - `GET /api/sources/status` — Estado das 10 fontes de ingressos.
 - `POST /api/admin/audience/import` e `POST /api/admin/events/import` — Importação autenticada via cabeçalho `Authorization: Bearer <RADAR_ADMIN_TOKEN>`.
+
+## Documentação por Fase
+
+- [Fase 1 — Fundação e Rankings](docs/fase-1-radar.md)
+- [Fase 2 — Mapa e Sincronização Geográfica IBGE](docs/fase-2-geografia.md)
+- [Fase 3 — Radar de Tendências de Eventos](docs/fase-3-eventos.md)
+- [Fase 4 — Integrações de Audiência Regional](docs/fase-4-audiencia.md)
+- [Fase 5 — Radar de Oportunidades](docs/fase-5-oportunidades.md) (inclui CLI `npm run events:coverage -- cobertura.json`)

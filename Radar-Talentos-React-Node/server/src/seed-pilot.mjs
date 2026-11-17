@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { importEvents } from './events.mjs';
+import { importCoverage } from './opportunities.mjs';
 import {
   importRegionalAudience,
   importEventsBatch,
@@ -68,7 +69,10 @@ const STATE_CODES = {
 export function seedPilotDatabaseIfEmpty(db) {
   if (!db) return;
   const countRow = db.prepare('SELECT count(*) AS n FROM municipalities').get();
-  if (countRow && countRow.n > 0) return;
+  if (countRow && countRow.n > 0) {
+    ensurePilotCoverageIfEmpty(db);
+    return;
+  }
 
   const municipiosPath = new URL(
     '../../src/domain/ibge-municipios-data.json',
@@ -719,6 +723,8 @@ export function seedPilotDatabaseIfEmpty(db) {
     importEvents(db, batch);
   }
 
+  ensurePilotCoverageIfEmpty(db);
+
   // Also seed commercial_events and audience_geo_snapshots for the complementary tabs
   importRegionalAudience(db, {
     rows: [
@@ -828,4 +834,66 @@ export function seedPilotDatabaseIfEmpty(db) {
       },
     ],
   });
+}
+
+function ensurePilotCoverageIfEmpty(db) {
+  try {
+    const covCount = db.prepare('SELECT count(*) AS n FROM event_coverage').get();
+    if (covCount && covCount.n > 0) return;
+    const impCount = db.prepare('SELECT count(*) AS n FROM event_imports').get();
+    if (!impCount || impCount.n === 0) return;
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const startWindowStr = new Date(Date.now() - 29 * 86400000)
+      .toISOString()
+      .slice(0, 10);
+    const coveredPlatforms = [
+      'diskingressos',
+      'eventim',
+      'ticketsports',
+      'sympla',
+      'ingresse',
+      'uhuu',
+      'blueticket',
+    ];
+    const coveredCities = [
+      '4106902',
+      '4125506',
+      '4119905',
+      '4118204',
+      '4113700',
+      '4115200',
+      '4209102',
+      '4202404',
+      '4208203',
+      '4202008',
+      '4205407',
+      '4314902',
+      '3550308',
+      '3509502',
+      '3304557',
+      '3106200',
+      '5300108',
+      '5208707',
+      '2927408',
+      '2611606',
+      '2304400',
+      '1302603',
+      '1501402',
+    ];
+    const coverageItems = [];
+    for (const platform of coveredPlatforms) {
+      for (const city of coveredCities) {
+        coverageItems.push({
+          platform,
+          city,
+          start: startWindowStr,
+          end: todayStr,
+          basis: 'first_seen',
+          evidence: `Catálogo piloto verificado (${platform})`,
+        });
+      }
+    }
+    importCoverage(db, coverageItems);
+  } catch {}
 }

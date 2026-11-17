@@ -12,6 +12,7 @@ try {
   console.log('Modalidades:', db.prepare('SELECT count(*) AS total FROM modalities').get().total);
   console.log('Municípios IBGE com coordenadas:', db.prepare('SELECT count(*) AS total FROM municipalities WHERE lat IS NOT NULL').get().total);
   console.log('Eventos únicos (Fase 3):', db.prepare('SELECT count(*) AS total FROM events').get().total);
+  console.log('Declarações de cobertura (Fase 5):', db.prepare('SELECT count(*) AS total FROM event_coverage').get().total);
 } finally {
   db.close();
 }

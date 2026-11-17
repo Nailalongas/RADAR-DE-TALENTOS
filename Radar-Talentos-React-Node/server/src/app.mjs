@@ -11,7 +11,7 @@ import {
 import { radarQuery, FilterError } from './radar.mjs';
 import { eventQuery } from './events.mjs';
 import { audienceStatus } from './audience.mjs';
-import { opportunitiesQuery } from './opportunities.mjs';
+import { opportunitiesQuery, opportunityQuery } from './opportunities.mjs';
 import {
   queryGeoRegions,
   queryGeoStates,
@@ -329,31 +329,46 @@ export function createRadarServer({ database, adminToken } = {}) {
       }
 
       if (path === '/api/opportunities') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        try {
-          const params = requestUrl.searchParams;
-          sendJson(
-            req,
-            res,
-            200,
-            queryOpportunities(database, {
-              talentId: params.get('talentId') || '',
-              talentName: params.get('talentName') || '',
-              platform: params.get('platform') || 'Instagram',
-              metric: params.get('metric') || 'seguidores',
-              modalityId: params.get('modalityId') || 'all',
-              region: params.get('region') || '',
-              uf: params.get('uf') || '',
-              centerMunicipalityId:
-                params.get('centerMunicipalityId') ||
-                params.get('municipalityId') ||
-                '',
-              radiusKm: params.get('radiusKm'),
-            })
-          );
-        } catch (err) {
-          sendJson(req, res, 400, { error: err.message });
+        if (!database) {
+          res.writeHead(503).end();
+          return;
         }
+        if (!checkDatabaseReady(database, req, res)) return;
+        const params = requestUrl.searchParams;
+        if (
+          params.has('talentName') ||
+          params.has('talentId') ||
+          params.has('modalityId') ||
+          params.has('centerMunicipalityId') ||
+          params.has('radiusKm')
+        ) {
+          try {
+            sendJson(
+              req,
+              res,
+              200,
+              queryOpportunities(database, {
+                talentId: params.get('talentId') || '',
+                talentName: params.get('talentName') || '',
+                platform: params.get('platform') || 'Instagram',
+                metric: params.get('metric') || 'seguidores',
+                modalityId: params.get('modalityId') || 'all',
+                region: params.get('region') || '',
+                uf: params.get('uf') || '',
+                centerMunicipalityId:
+                  params.get('centerMunicipalityId') ||
+                  params.get('municipalityId') ||
+                  '',
+                radiusKm: params.get('radiusKm'),
+              })
+            );
+          } catch (err) {
+            sendJson(req, res, 400, { error: err.message });
+          }
+          return;
+        }
+        const result = opportunityQuery(database, params);
+        sendJson(req, res, 200, result);
         return;
       }
 

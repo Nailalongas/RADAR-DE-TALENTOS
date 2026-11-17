@@ -38,6 +38,7 @@ import EventTrendsAndOpportunities from './components/EventTrendsAndOpportunitie
 import Radar from './Radar.jsx';
 import EventTrends from './EventTrends.jsx';
 import AudienceStatus from './AudienceStatus.jsx';
+import Opportunities from './Opportunities.jsx';
 import OpportunitiesRadar from './OpportunitiesRadar.jsx';
 
 function loadSavedSet(key) {
@@ -633,6 +634,7 @@ export default function App() {
             <Radar />
             <AudienceStatus />
             <EventTrends />
+            <Opportunities />
             <OpportunitiesRadar />
           </>
         ) : activeNav === 'geoRadar' ? (
@@ -644,6 +646,7 @@ export default function App() {
         ) : activeNav === 'eventTrends' ? (
           <>
             <EventTrends />
+            <Opportunities />
             <OpportunitiesRadar />
             <EventTrendsAndOpportunities />
           </>
