@@ -1,9 +1,34 @@
-export default function handler(request, response) {
-  response.setHeader('Cache-Control', 'no-store');
-  if (request.method !== 'GET' && request.method !== 'HEAD') {
-    response.setHeader('Allow', 'GET, HEAD');
-    return response.status(405).end();
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { openDatabase, databasePath } from '../server/src/database/index.mjs';
+import { seedPilotDatabaseIfEmpty } from '../server/src/seed-pilot.mjs';
+import { createRadarServer } from '../server/src/app.mjs';
+
+let sharedServerPromise = null;
+
+function getServerlessServer() {
+  if (!sharedServerPromise) {
+    sharedServerPromise = Promise.resolve().then(() => {
+      const defaultPath = databasePath();
+      const targetPath = existsSync(defaultPath)
+        ? defaultPath
+        : join(tmpdir(), 'radar-vercel-pilot.sqlite');
+      const db = openDatabase(targetPath);
+      seedPilotDatabaseIfEmpty(db);
+      return createRadarServer({ database: db });
+    });
   }
-  if (request.method === 'HEAD') return response.status(200).end();
-  return response.status(200).json({ ok: true });
+  return sharedServerPromise;
+}
+
+export default async function handler(req, res) {
+  try {
+    const server = await getServerlessServer();
+    server.emit('request', req, res);
+  } catch (err) {
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    res.statusCode = 500;
+    res.end(JSON.stringify({ ok: false, error: err.message }));
+  }
 }
