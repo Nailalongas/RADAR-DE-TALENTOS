@@ -1,16 +1,55 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ALL_IBGE_MUNICIPALITIES,
   BRAZIL_REGIONS,
-  DEFAULT_MUNICIPALITIES,
   RADIUS_PRESETS_KM,
+  UF_TO_REGION,
   filterMunicipalitiesByGeo,
 } from '../domain/geo-intelligence.js';
+import ibgeUfMalha from '../domain/ibge-uf-malha.json' with { type: 'json' };
 import { formatNumber } from '../domain/research.js';
 import {
   getAudienceMap,
-  getGeoMunicipalities,
   postAdminAudienceImport,
 } from '../services/api.js';
+
+const IBGE_CODE_TO_UF = {
+  11: 'RO',
+  12: 'AC',
+  13: 'AM',
+  14: 'RR',
+  15: 'PA',
+  16: 'AP',
+  17: 'TO',
+  21: 'MA',
+  22: 'PI',
+  23: 'CE',
+  24: 'RN',
+  25: 'PB',
+  26: 'PE',
+  27: 'AL',
+  28: 'SE',
+  29: 'BA',
+  31: 'MG',
+  32: 'ES',
+  33: 'RJ',
+  35: 'SP',
+  41: 'PR',
+  42: 'SC',
+  43: 'RS',
+  50: 'MS',
+  51: 'MT',
+  52: 'GO',
+  53: 'DF',
+};
+
+const REGION_BASE_COLORS = {
+  N: '#d1e7dd',
+  NE: '#fce8d5',
+  CO: '#e5dcf2',
+  SE: '#d2e4f5',
+  S: '#cde6eb',
+};
 
 const PLATFORM_METRICS = {
   Instagram: [
@@ -30,11 +69,49 @@ const PLATFORM_METRICS = {
 };
 
 function projectToSvg(lat, lon) {
-  // Maps Brazil bounds: lon [-74, -34] -> x [20, 420], lat [5, -34] -> y [20, 410]
-  const x = ((lon + 74) / 40) * 400 + 20;
-  const y = ((5 - lat) / 39) * 390 + 20;
+  // Maps Brazil bounds: lon [-75, -33] -> x [10, 430], lat [6, -34] -> y [10, 410]
+  const x = ((lon + 75) / 42) * 420 + 10;
+  const y = ((6 - lat) / 40) * 400 + 10;
   return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
 }
+
+function buildStateSvgPaths(geojson) {
+  const features = geojson?.features || [];
+  return features
+    .map(feature => {
+      const codarea = String(feature.properties?.codarea || feature.id || '');
+      const uf = IBGE_CODE_TO_UF[codarea];
+      if (!uf || !feature.geometry) return null;
+      const polygons =
+        feature.geometry.type === 'Polygon'
+          ? [feature.geometry.coordinates]
+          : feature.geometry.coordinates;
+      const d = polygons
+        .flatMap(poly =>
+          poly.map(
+            ring =>
+              'M' +
+              ring
+                .map(([lng, lat]) => {
+                  const pt = projectToSvg(lat, lng);
+                  return `${pt.x},${pt.y}`;
+                })
+                .join('L') +
+              'Z'
+          )
+        )
+        .join('');
+      return {
+        uf,
+        codarea,
+        regionCode: UF_TO_REGION[uf] || '',
+        d,
+      };
+    })
+    .filter(Boolean);
+}
+
+const STATE_SVG_PATHS = buildStateSvgPaths(ibgeUfMalha);
 
 const SAMPLE_AUDIENCE_CSV = [
   'talentName;platform;metric;unit;granularity;ibgeCode;periodStart;periodEnd;value;provenance;source',
@@ -52,17 +129,19 @@ const SAMPLE_AUDIENCE_CSV = [
 ].join('\n');
 
 export default function GeoAudienceRadar() {
-  const [municipalities, setMunicipalities] = useState(DEFAULT_MUNICIPALITIES);
+  const [municipalities] = useState(ALL_IBGE_MUNICIPALITIES);
   const [talentName, setTalentName] = useState('');
   const [platform, setPlatform] = useState('YouTube');
   const [metric, setMetric] = useState('visualizacoes');
   const [region, setRegion] = useState('all');
   const [uf, setUf] = useState('all');
   const [citySearch, setCitySearch] = useState('');
+  const [centerSelectorQuery, setCenterSelectorQuery] = useState('');
   const [centerMunicipalityId, setCenterMunicipalityId] = useState('4106902'); // Curitiba default
   const [radiusMode, setRadiusMode] = useState('150'); // 'none' | preset | 'custom'
   const [customRadiusKm, setCustomRadiusKm] = useState('150');
   const [perCapita, setPerCapita] = useState(false);
+  const [zoomMode, setZoomMode] = useState('brazil'); // 'brazil' | 'focus' | '2x' | '4x'
 
   const [audienceReport, setAudienceReport] = useState({
     items: [],
@@ -72,7 +151,8 @@ export default function GeoAudienceRadar() {
   });
   const [localImportedRows, setLocalImportedRows] = useState([]);
   const [importStatus, setImportStatus] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [tablePage, setTablePage] = useState(0);
+  const PAGE_SIZE = 50;
 
   const effectiveRadiusKm = useMemo(() => {
     if (radiusMode === 'none') return null;
@@ -81,24 +161,33 @@ export default function GeoAudienceRadar() {
     return Number.isFinite(n) && n >= 0 ? n : null;
   }, [radiusMode, customRadiusKm]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    getGeoMunicipalities({ signal: controller.signal })
-      .then(data => {
-        if (Array.isArray(data?.municipalities) && data.municipalities.length) {
-          setMunicipalities(data.municipalities);
-        }
-      })
-      .catch(() => {});
-    return () => controller.abort();
-  }, []);
-
   const availableUfs = useMemo(() => {
     if (region === 'all') {
       return BRAZIL_REGIONS.flatMap(r => r.ufs).sort();
     }
     return BRAZIL_REGIONS.find(r => r.code === region)?.ufs || [];
   }, [region]);
+
+  const centerCandidateOptions = useMemo(() => {
+    const q = centerSelectorQuery.trim().toLowerCase();
+    const current = municipalities.find(
+      m => m.ibge_code === centerMunicipalityId
+    );
+    const matches = q
+      ? municipalities
+          .filter(
+            m =>
+              m.name.toLowerCase().includes(q) ||
+              m.ibge_code.includes(q) ||
+              `${m.name.toLowerCase()} (${m.uf.toLowerCase()})`.includes(q)
+          )
+          .slice(0, 120)
+      : municipalities.filter(m => m.capital || m.population).slice(0, 120);
+    if (current && !matches.some(m => m.ibge_code === current.ibge_code)) {
+      return [current, ...matches];
+    }
+    return matches;
+  }, [municipalities, centerSelectorQuery, centerMunicipalityId]);
 
   const geoFiltered = useMemo(() => {
     try {
@@ -123,7 +212,6 @@ export default function GeoAudienceRadar() {
   ]);
 
   async function refreshAudienceReport() {
-    setLoading(true);
     try {
       const report = await getAudienceMap({
         talentName,
@@ -137,12 +225,11 @@ export default function GeoAudienceRadar() {
         perCapita,
       });
       setAudienceReport(report);
-    } finally {
-      setLoading(false);
-    }
+    } catch {}
   }
 
   useEffect(() => {
+    setTablePage(0);
     refreshAudienceReport();
   }, [
     talentName,
@@ -155,7 +242,6 @@ export default function GeoAudienceRadar() {
     perCapita,
   ]);
 
-  // Combine backend rows with any locally imported rows (if running on serverless preview)
   const displayedAudienceItems = useMemo(() => {
     if (audienceReport.items?.length) return audienceReport.items;
     if (!localImportedRows.length) return [];
@@ -211,10 +297,49 @@ export default function GeoAudienceRadar() {
     perCapita,
   ]);
 
+  const audienceByIbge = useMemo(
+    () => new Map(displayedAudienceItems.map(i => [i.ibgeCode, i])),
+    [displayedAudienceItems]
+  );
+
+  const audienceByState = useMemo(() => {
+    const totals = new Map();
+    for (const item of displayedAudienceItems) {
+      totals.set(item.uf, (totals.get(item.uf) || 0) + item.value);
+    }
+    return totals;
+  }, [displayedAudienceItems]);
+
+  const maxStateVal = Math.max(1, ...audienceByState.values());
+  const maxVal = Math.max(1, ...displayedAudienceItems.map(i => i.value));
+
   const totalKnownInFilter = displayedAudienceItems.reduce(
     (s, x) => s + x.value,
     0
   );
+
+  const centerCoords = geoFiltered.center
+    ? projectToSvg(geoFiltered.center.latitude, geoFiltered.center.longitude)
+    : null;
+
+  const svgViewBox = useMemo(() => {
+    if (zoomMode === 'brazil' || !centerCoords) {
+      return '0 0 440 420';
+    }
+    const radiusSvg =
+      effectiveRadiusKm !== null
+        ? Math.max(25, (effectiveRadiusKm / 4200) * 400)
+        : 80;
+    const halfSpan =
+      zoomMode === 'focus'
+        ? Math.min(200, Math.max(35, radiusSvg * 1.6))
+        : zoomMode === '4x'
+          ? 55
+          : 110;
+    const minX = Math.max(0, Math.min(440 - halfSpan * 2, centerCoords.x - halfSpan));
+    const minY = Math.max(0, Math.min(420 - halfSpan * 2, centerCoords.y - halfSpan));
+    return `${minX.toFixed(1)} ${minY.toFixed(1)} ${(halfSpan * 2).toFixed(1)} ${(halfSpan * 2).toFixed(1)}`;
+  }, [zoomMode, centerCoords, effectiveRadiusKm]);
 
   async function handleCsvUpload(text) {
     const lines = text
@@ -277,22 +402,68 @@ export default function GeoAudienceRadar() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  const centerCoords = geoFiltered.center
-    ? projectToSvg(geoFiltered.center.latitude, geoFiltered.center.longitude)
-    : null;
-  const maxVal = Math.max(1, ...displayedAudienceItems.map(i => i.value));
+  // Sort municipalities in the table: those with known audience first, then by distance or population
+  const sortedMunicipalitiesForTable = useMemo(() => {
+    return [...geoFiltered.municipalities].sort((a, b) => {
+      const audA = audienceByIbge.get(a.ibge_code);
+      const audB = audienceByIbge.get(b.ibge_code);
+      if (audA && !audB) return -1;
+      if (!audA && audB) return 1;
+      if (audA && audB) {
+        return perCapita
+          ? (audB.per100kInhabitants || 0) - (audA.per100kInhabitants || 0)
+          : audB.value - audA.value;
+      }
+      if (a.distanceKm !== null && b.distanceKm !== null) {
+        return a.distanceKm - b.distanceKm || a.name.localeCompare(b.name, 'pt-BR');
+      }
+      return (
+        (b.population || 0) - (a.population || 0) ||
+        a.name.localeCompare(b.name, 'pt-BR')
+      );
+    });
+  }, [geoFiltered.municipalities, audienceByIbge, perCapita]);
+
+  const pagedMunicipalities = sortedMunicipalitiesForTable.slice(
+    tablePage * PAGE_SIZE,
+    (tablePage + 1) * PAGE_SIZE
+  );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(sortedMunicipalitiesForTable.length / PAGE_SIZE)
+  );
+
+  // Limit map points to avoid rendering 5571 SVG circles simultaneously when viewing whole country without radius
+  const mapPoints = useMemo(() => {
+    if (effectiveRadiusKm !== null && effectiveRadiusKm <= 500) {
+      return geoFiltered.municipalities;
+    }
+    return geoFiltered.municipalities.filter(
+      m =>
+        m.capital ||
+        m.population > 100000 ||
+        audienceByIbge.has(m.ibge_code) ||
+        m.ibge_code === centerMunicipalityId
+    );
+  }, [
+    geoFiltered.municipalities,
+    effectiveRadiusKm,
+    audienceByIbge,
+    centerMunicipalityId,
+  ]);
 
   return (
     <section id="geoAudienceRadar" aria-label="Radar Geográfico de Audiência">
       <div className="research-panel">
         <h2 className="research-panel-title">
-          Radar Geográfico de Audiência e Filtro por Raio (km)
+          Radar Geográfico Cartográfico do Brasil ({formatNumber(municipalities.length)}{' '}
+          municípios oficiais IBGE)
         </h2>
         <p className="small" style={{ marginBottom: 16 }}>
-          Localize a concentração de público por macrorregião, estado, município
-          (código IBGE) e raio geodésico em linha reta (Haversine · WGS84).
-          Métricas de plataformas diferentes possuem unidades distintas e nunca
-          são somadas como se fossem pessoas únicas.
+          Malha territorial oficial das 27 UFs (IBGE) e todos os{' '}
+          <b>{formatNumber(municipalities.length)} municípios brasileiros</b>{' '}
+          com coordenadas WGS84 e cálculo geodésico Haversine por raio em km.
+          Métricas de redes distintas não são somadas como pessoas únicas.
         </p>
 
         <div className="persistent-filters">
@@ -325,10 +496,7 @@ export default function GeoAudienceRadar() {
 
             <label>
               Indicador da plataforma
-              <select
-                value={metric}
-                onChange={e => setMetric(e.target.value)}
-              >
+              <select value={metric} onChange={e => setMetric(e.target.value)}>
                 {(PLATFORM_METRICS[platform] || []).map(m => (
                   <option key={m.value} value={m.value}>
                     {m.label}
@@ -358,7 +526,7 @@ export default function GeoAudienceRadar() {
             <label>
               Estado (UF)
               <select value={uf} onChange={e => setUf(e.target.value)}>
-                <option value="all">Todos os estados</option>
+                <option value="all">Todos os 27 estados</option>
                 {availableUfs.map(u => (
                   <option key={u} value={u}>
                     {u}
@@ -368,13 +536,23 @@ export default function GeoAudienceRadar() {
             </label>
 
             <label>
-              Cidade de referência (IBGE)
+              Filtrar cidade de referência (5.571 municípios)
+              <input
+                type="search"
+                placeholder="Digite qualquer cidade ou código IBGE…"
+                value={centerSelectorQuery}
+                onChange={e => setCenterSelectorQuery(e.target.value)}
+              />
+            </label>
+
+            <label>
+              Cidade de referência selecionada
               <select
                 id="centerMunicipalitySelect"
                 value={centerMunicipalityId}
                 onChange={e => setCenterMunicipalityId(e.target.value)}
               >
-                {municipalities.map(m => (
+                {centerCandidateOptions.map(m => (
                   <option key={m.ibge_code} value={m.ibge_code}>
                     {m.name} ({m.uf}) · IBGE {m.ibge_code}
                   </option>
@@ -413,10 +591,10 @@ export default function GeoAudienceRadar() {
             )}
 
             <label>
-              Buscar município na lista
+              Buscar município no resultado
               <input
                 type="search"
-                placeholder="Nome, UF ou código IBGE…"
+                placeholder="Ex.: Bom Jesus, Joinville, 4106902…"
                 value={citySearch}
                 onChange={e => setCitySearch(e.target.value)}
               />
@@ -443,9 +621,10 @@ export default function GeoAudienceRadar() {
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
               type="button"
+              className="primary"
               onClick={() => handleCsvUpload(SAMPLE_AUDIENCE_CSV)}
             >
-              Carregar exemplo piloto (Natiruts · Raio Curitiba/SP/POA)
+              Carregar exemplo piloto (Natiruts · Curitiba/Joinville/SP/POA)
             </button>
             <button
               type="button"
@@ -455,6 +634,7 @@ export default function GeoAudienceRadar() {
                 setUf('all');
                 setRadiusMode('none');
                 setCitySearch('');
+                setZoomMode('brazil');
               }}
             >
               Limpar filtros geográficos
@@ -467,7 +647,9 @@ export default function GeoAudienceRadar() {
         <div className="summary-grid">
           <div className="summary-card">
             <strong>{formatNumber(geoFiltered.municipalities.length)}</strong>
-            <span>municípios da base no recorte geográfico</span>
+            <span>
+              de {formatNumber(municipalities.length)} municípios no recorte
+            </span>
           </div>
           <div className="summary-card">
             <strong>
@@ -498,123 +680,215 @@ export default function GeoAudienceRadar() {
         </div>
         <p className="summary-note">
           {audienceReport.coverageNotice ||
-            'Distância geodésica em linha reta (fórmula de Haversine, WGS84). Ausência de relatório oficial aparece como Indisponível, nunca como zero.'}
+            'Malha territorial oficial do IBGE (27 UFs) e 5.571 municípios com coordenadas WGS84. Ausência de relatório oficial aparece como Indisponível, nunca como zero.'}
         </p>
       </section>
 
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'minmax(320px, 1fr) minmax(0, 1.4fr)',
+          gridTemplateColumns: 'minmax(340px, 1.05fr) minmax(0, 1.35fr)',
           gap: '22px',
           alignItems: 'start',
         }}
       >
         <section className="panel">
-          <h3>Mapa de concentração e raio geodésico</h3>
+          <div className="sectionhead" style={{ marginBottom: 10 }}>
+            <h3>Mapa Cartográfico do Brasil (Malha IBGE)</h3>
+            <div className="chips">
+              <button
+                type="button"
+                className={zoomMode === 'brazil' ? 'active' : ''}
+                onClick={() => setZoomMode('brazil')}
+              >
+                Brasil (1x)
+              </button>
+              <button
+                type="button"
+                className={zoomMode === 'focus' ? 'active' : ''}
+                onClick={() => setZoomMode('focus')}
+              >
+                Focar no Raio
+              </button>
+              <button
+                type="button"
+                className={zoomMode === '2x' ? 'active' : ''}
+                onClick={() => setZoomMode('2x')}
+              >
+                Zoom 2x
+              </button>
+              <button
+                type="button"
+                className={zoomMode === '4x' ? 'active' : ''}
+                onClick={() => setZoomMode('4x')}
+              >
+                Zoom 4x
+              </button>
+            </div>
+          </div>
+
           <p className="small">
             {geoFiltered.center && effectiveRadiusKm !== null
-              ? `Círculo de ${effectiveRadiusKm} km centrado em ${geoFiltered.center.name} (${geoFiltered.center.uf}).`
-              : 'Visão nacional dos municípios cadastrados na base IBGE.'}
+              ? `Raio geodésico de ${effectiveRadiusKm} km centrado em ${geoFiltered.center.name} (${geoFiltered.center.uf}) · ${formatNumber(geoFiltered.municipalities.length)} municípios incluídos.`
+              : 'Clique em qualquer estado para filtrar pela UF ou em qualquer município para centralizar o raio em km.'}
           </p>
+
           <svg
-            viewBox="0 0 440 430"
+            viewBox={svgViewBox}
             style={{
               width: '100%',
               height: 'auto',
-              background: '#f0f6fb',
+              background: '#e5f1f8',
               borderRadius: '14px',
-              border: '1px solid #c8dbea',
+              border: '1px solid #bdd4e7',
             }}
             role="img"
-            aria-label="Mapa geográfico de municípios e raio de atuação"
+            aria-label="Mapa cartográfico oficial do Brasil por estado e municípios"
           >
+            {/* Camada 1: Malha territorial oficial das 27 UFs (IBGE) */}
+            <g aria-label="Estados brasileiros">
+              {STATE_SVG_PATHS.map(st => {
+                const stateVal = audienceByState.get(st.uf) || 0;
+                const isSelectedUf = uf === st.uf;
+                const inSelectedRegion =
+                  region === 'all' || st.regionCode === region;
+                const fill =
+                  stateVal > 0
+                    ? `hsl(168, 72%, ${Math.round(74 - (stateVal / maxStateVal) * 42)}%)`
+                    : !inSelectedRegion || (uf !== 'all' && !isSelectedUf)
+                      ? '#dbe4ec'
+                      : REGION_BASE_COLORS[st.regionCode] || '#dfe9f2';
+
+                return (
+                  <path
+                    key={st.uf}
+                    d={st.d}
+                    fill={fill}
+                    stroke={isSelectedUf ? '#085f4c' : '#7a96af'}
+                    strokeWidth={isSelectedUf ? '1.6' : '0.7'}
+                    style={{ cursor: 'pointer', transition: 'fill .15s' }}
+                    onClick={() =>
+                      setUf(prev => (prev === st.uf ? 'all' : st.uf))
+                    }
+                  >
+                    <title>
+                      {`Estado: ${st.uf}${
+                        stateVal > 0
+                          ? ` · ${platform} (${metric}): ${formatNumber(stateVal)}`
+                          : ' · Clique para filtrar UF'
+                      }`}
+                    </title>
+                  </path>
+                );
+              })}
+            </g>
+
+            {/* Camada 2: Círculo do raio geodésico de atuação */}
             {centerCoords && effectiveRadiusKm !== null && (
               <circle
                 cx={centerCoords.x}
                 cy={centerCoords.y}
-                r={Math.max(6, (effectiveRadiusKm / 4000) * 380)}
-                fill="#00b58b22"
-                stroke="#008773"
-                strokeWidth="1.8"
-                strokeDasharray="4 3"
+                r={Math.max(4, (effectiveRadiusKm / 4200) * 400)}
+                fill="#00b58b28"
+                stroke="#007c64"
+                strokeWidth="1.4"
+                strokeDasharray="4 2"
               />
             )}
-            {geoFiltered.municipalities.map(m => {
-              const pt = projectToSvg(m.latitude, m.longitude);
-              const audItem = displayedAudienceItems.find(
-                a => a.ibgeCode === m.ibge_code
-              );
-              const isCenter =
-                geoFiltered.center &&
-                m.ibge_code === geoFiltered.center.ibge_code;
-              const radius = audItem
-                ? 5 + (audItem.value / maxVal) * 14
-                : isCenter
-                  ? 6
-                  : 3.5;
-              const fill = audItem
-                ? '#008773'
-                : isCenter
-                  ? '#102d4c'
-                  : '#94a3b8';
-              return (
-                <g
-                  key={m.ibge_code}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => setCenterMunicipalityId(m.ibge_code)}
-                >
-                  <circle
-                    cx={pt.x}
-                    cy={pt.y}
-                    r={radius}
-                    fill={fill}
-                    opacity={audItem ? 0.85 : 0.65}
-                    stroke="#fff"
-                    strokeWidth="1"
+
+            {/* Camada 3: Municípios dentro do recorte e bolhas de audiência */}
+            <g aria-label="Municípios no recorte">
+              {mapPoints.map(m => {
+                if (m.latitude == null || m.longitude == null) return null;
+                const pt = projectToSvg(m.latitude, m.longitude);
+                const audItem = audienceByIbge.get(m.ibge_code);
+                const isCenter =
+                  geoFiltered.center &&
+                  m.ibge_code === geoFiltered.center.ibge_code;
+                const r = audItem
+                  ? 4.5 + (audItem.value / maxVal) * 11
+                  : isCenter
+                    ? 5.5
+                    : 2.2;
+                const fill = audItem
+                  ? '#007e68'
+                  : isCenter
+                    ? '#102d4c'
+                    : '#3b648c';
+
+                return (
+                  <g
+                    key={m.ibge_code}
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => setCenterMunicipalityId(m.ibge_code)}
                   >
-                    <title>
-                      {`${m.name} (${m.uf}) · IBGE ${m.ibge_code}${
-                        m.distanceKm !== null ? ` · ${m.distanceKm} km` : ''
-                      }${
-                        audItem
-                          ? ` · ${platform} (${metric}): ${formatNumber(audItem.value)}`
-                          : ' · Sem relatório de audiência'
-                      }`}
-                    </title>
-                  </circle>
-                  {(isCenter || audItem) && (
-                    <text
-                      x={pt.x}
-                      y={pt.y - radius - 4}
-                      textAnchor="middle"
-                      fontSize="10"
-                      fontWeight="600"
-                      fill="#102d4c"
+                    <circle
+                      cx={pt.x}
+                      cy={pt.y}
+                      r={r}
+                      fill={fill}
+                      opacity={audItem || isCenter ? 0.92 : 0.65}
+                      stroke="#fff"
+                      strokeWidth={audItem || isCenter ? '1' : '0.4'}
                     >
-                      {m.name}
-                    </text>
-                  )}
-                </g>
-              );
-            })}
+                      <title>
+                        {`${m.name} (${m.uf}) · IBGE ${m.ibge_code}${
+                          m.distanceKm !== null ? ` · ${m.distanceKm} km` : ''
+                        }${
+                          audItem
+                            ? ` · ${platform} (${metric}): ${formatNumber(audItem.value)}`
+                            : ' · Clique para definir como centro do raio'
+                        }`}
+                      </title>
+                    </circle>
+                    {(isCenter || audItem) && (
+                      <text
+                        x={pt.x}
+                        y={pt.y - r - 3}
+                        textAnchor="middle"
+                        fontSize="8.5"
+                        fontWeight="700"
+                        fill="#0b223d"
+                      >
+                        {m.name}
+                      </text>
+                    )}
+                  </g>
+                );
+              })}
+            </g>
           </svg>
-          <p className="small" style={{ marginTop: 10 }}>
-            Clique em qualquer município no mapa para defini-lo como cidade de
-            referência do raio em km. Cinza indica município sem relatório de
-            audiência carregado; verde indica audiência verificada/estimada.
-          </p>
+
+          <div
+            className="chips"
+            style={{ marginTop: 12, fontSize: 11, color: '#456276' }}
+          >
+            <span className="badge" style={{ background: '#007e68', color: '#fff' }}>
+              ● Audiência verificada/estimada
+            </span>
+            <span className="badge" style={{ background: '#102d4c', color: '#fff' }}>
+              ● Cidade de referência do raio
+            </span>
+            <span className="badge">● Municípios no raio (IBGE)</span>
+          </div>
         </section>
 
         <section className="panel">
-          <h3>
-            Ranking de municípios no recorte ({geoFiltered.municipalities.length}{' '}
-            cidades)
-          </h3>
+          <div className="sectionhead">
+            <h3>
+              Municípios no recorte ({formatNumber(sortedMunicipalitiesForTable.length)}{' '}
+              cidades)
+            </h3>
+            <span className="small">
+              Página {tablePage + 1} de {totalPages}
+            </span>
+          </div>
           <p className="small">
-            Desambiguação oficial pelo código IBGE de 7 dígitos e UF. População
-            e PIB per capita segundo o Censo IBGE 2022.
+            Qualquer um dos 5.571 municípios brasileiros pode ser selecionado
+            como referência do raio em km. Homônimos são desambiguados pela UF e
+            pelo código IBGE de 7 dígitos.
           </p>
+
           <div style={{ overflowX: 'auto' }}>
             <table className="discovery-report">
               <thead>
@@ -622,22 +896,20 @@ export default function GeoAudienceRadar() {
                   <th>#</th>
                   <th>Município (UF) · IBGE</th>
                   <th>Distância</th>
-                  <th>População (IBGE)</th>
                   <th>
                     {platform} · {metric}
                   </th>
-                  <th>Por 100 mil hab.</th>
                   <th>Participação / Fonte</th>
+                  <th>Ação</th>
                 </tr>
               </thead>
               <tbody>
-                {geoFiltered.municipalities.map((m, idx) => {
-                  const aud = displayedAudienceItems.find(
-                    a => a.ibgeCode === m.ibge_code
-                  );
+                {pagedMunicipalities.map((m, idx) => {
+                  const aud = audienceByIbge.get(m.ibge_code);
+                  const pos = tablePage * PAGE_SIZE + idx + 1;
                   return (
                     <tr key={m.ibge_code}>
-                      <td>{idx + 1}</td>
+                      <td>{pos}</td>
                       <td>
                         <b>
                           {m.name} ({m.uf})
@@ -649,19 +921,11 @@ export default function GeoAudienceRadar() {
                         {m.distanceKm !== null ? `${m.distanceKm} km` : '—'}
                       </td>
                       <td>
-                        {m.population ? formatNumber(m.population) : '—'}
-                      </td>
-                      <td>
                         {aud ? (
                           <strong>{formatNumber(aud.value)}</strong>
                         ) : (
                           <span className="small">Indisponível</span>
                         )}
-                      </td>
-                      <td>
-                        {aud?.per100kInhabitants != null
-                          ? formatNumber(aud.per100kInhabitants)
-                          : '—'}
                       </td>
                       <td>
                         {aud ? (
@@ -676,12 +940,53 @@ export default function GeoAudienceRadar() {
                           <small>Sem relatório municipal</small>
                         )}
                       </td>
+                      <td>
+                        <button
+                          type="button"
+                          style={{ padding: '6px 10px', fontSize: 12 }}
+                          onClick={() => {
+                            setCenterMunicipalityId(m.ibge_code);
+                            if (radiusMode === 'none') setRadiusMode('150');
+                          }}
+                        >
+                          Usar como centro
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
+
+          {totalPages > 1 && (
+            <div className="tools">
+              <button
+                type="button"
+                disabled={tablePage === 0}
+                onClick={() => setTablePage(p => Math.max(0, p - 1))}
+              >
+                ← Anterior
+              </button>
+              <span className="small">
+                Exibindo {tablePage * PAGE_SIZE + 1}–
+                {Math.min(
+                  (tablePage + 1) * PAGE_SIZE,
+                  sortedMunicipalitiesForTable.length
+                )}{' '}
+                de {formatNumber(sortedMunicipalitiesForTable.length)} municípios
+              </span>
+              <button
+                type="button"
+                disabled={tablePage + 1 >= totalPages}
+                onClick={() =>
+                  setTablePage(p => Math.min(totalPages - 1, p + 1))
+                }
+              >
+                Próxima →
+              </button>
+            </div>
+          )}
         </section>
       </div>
 

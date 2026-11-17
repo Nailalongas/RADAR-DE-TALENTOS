@@ -1,4 +1,5 @@
 import {
+  ALL_IBGE_MUNICIPALITIES,
   BRAZIL_REGIONS,
   DEFAULT_MUNICIPALITIES,
   EVENT_MODALITIES,
@@ -55,18 +56,23 @@ export async function getGeoMunicipalities({
     const response = await fetch(`/api/geo/municipalities?${params.toString()}`, {
       signal,
     });
-    if (response.ok) return await response.json();
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data?.municipalities) && data.municipalities.length > 60) {
+        return data;
+      }
+    }
   } catch {}
   return {
-    ...filterMunicipalitiesByGeo(DEFAULT_MUNICIPALITIES, {
+    ...filterMunicipalitiesByGeo(ALL_IBGE_MUNICIPALITIES, {
       search,
       uf,
       region,
       centerMunicipalityId,
       radiusKm,
     }),
-    totalInBase: DEFAULT_MUNICIPALITIES.length,
-    sourceVersion: 'IBGE Censo 2022',
+    totalInBase: ALL_IBGE_MUNICIPALITIES.length,
+    sourceVersion: 'IBGE Localidades (5.571 municípios oficiais)',
   };
 }
 

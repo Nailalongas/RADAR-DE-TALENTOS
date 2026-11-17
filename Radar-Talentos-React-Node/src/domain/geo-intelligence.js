@@ -1,4 +1,5 @@
 import { normalizeName } from './research.js';
+import ibgeCompactRows from './ibge-municipios-data.json' with { type: 'json' };
 
 export const EARTH_RADIUS_KM = 6371;
 
@@ -82,6 +83,28 @@ export const DEFAULT_MUNICIPALITIES = [
   { ibge_code: '2401701', name: 'Bom Jesus', uf: 'RN', region_code: 'NE', latitude: -5.9864, longitude: -35.5792, population: 9952, gdp_per_capita: 14200.0 },
   { ibge_code: '4302303', name: 'Bom Jesus', uf: 'RS', region_code: 'S', latitude: -28.6686, longitude: -50.4167, population: 11202, gdp_per_capita: 41500.0 },
 ];
+
+const enrichedByCode = new Map(
+  DEFAULT_MUNICIPALITIES.map(m => [m.ibge_code, m])
+);
+
+export const ALL_IBGE_MUNICIPALITIES =
+  Array.isArray(ibgeCompactRows) && ibgeCompactRows.length > 0
+    ? ibgeCompactRows.map(([code, name, uf, lat, lon, capital]) => {
+        const enriched = enrichedByCode.get(String(code));
+        return {
+          ibge_code: String(code),
+          name,
+          uf,
+          region_code: UF_TO_REGION[uf] || '',
+          latitude: lat,
+          longitude: lon,
+          capital: Boolean(capital),
+          population: enriched?.population ?? null,
+          gdp_per_capita: enriched?.gdp_per_capita ?? null,
+        };
+      })
+    : DEFAULT_MUNICIPALITIES;
 
 export const EVENT_MODALITIES = [
   {

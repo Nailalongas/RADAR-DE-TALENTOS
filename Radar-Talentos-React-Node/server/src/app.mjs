@@ -8,6 +8,7 @@ import {
   queryResearchSummary,
   queryEvolution,
 } from './database/research.mjs';
+import { radarQuery, FilterError } from './radar.mjs';
 import {
   queryGeoRegions,
   queryGeoStates,
@@ -150,6 +151,19 @@ export function createRadarServer({ database, adminToken } = {}) {
         if (!checkDatabaseReady(database, req, res)) return;
         sendJson(req, res, 200, queryTaxonomy(database));
         return;
+      }
+
+      if (path.startsWith('/api/radar/')) {
+        if (!database) {
+          res.writeHead(503).end();
+          return;
+        }
+        if (!checkDatabaseReady(database, req, res)) return;
+        const result = radarQuery(database, path, requestUrl.searchParams);
+        if (result !== undefined) {
+          sendJson(req, res, 200, result);
+          return;
+        }
       }
 
       if (path === '/api/modalities') {
@@ -364,6 +378,10 @@ export function createRadarServer({ database, adminToken } = {}) {
       });
       res.end(req.method === 'HEAD' ? undefined : body);
     } catch (error) {
+      if (error instanceof FilterError) {
+        sendJson(req, res, 400, { error: error.message });
+        return;
+      }
       const code =
         error instanceof URIError
           ? 400
