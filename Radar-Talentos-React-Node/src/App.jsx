@@ -35,6 +35,10 @@ import ResearchTable from './components/ResearchTable.jsx';
 import TalentDetailModal from './components/TalentDetailModal.jsx';
 import GeoAudienceRadar from './components/GeoAudienceRadar.jsx';
 import EventTrendsAndOpportunities from './components/EventTrendsAndOpportunities.jsx';
+import Radar from './Radar.jsx';
+import EventTrends from './EventTrends.jsx';
+import AudienceStatus from './AudienceStatus.jsx';
+import OpportunitiesRadar from './OpportunitiesRadar.jsx';
 
 function loadSavedSet(key) {
   try {
@@ -74,7 +78,7 @@ export default function App() {
   const [adjustmentStatus, setAdjustmentStatus] = useState('');
 
   // Navigation / view state
-  const [activeNav, setActiveNav] = useState('discover'); // 'discover' | 'growthDashboard' | 'favorites' | 'archives'
+  const [activeNav, setActiveNav] = useState('fases123'); // 'fases123' | 'discover' | 'geoRadar' | 'eventTrends' | 'growthDashboard' | 'favorites' | 'archives'
   const [view, setView] = useState('all'); // 'all' | 'favorites'
 
   // Research filter state
@@ -574,6 +578,14 @@ export default function App() {
           </button>
           <button
             type="button"
+            id="fases123Open"
+            className={activeNav === 'fases123' ? 'active' : ''}
+            onClick={() => setActiveNav('fases123')}
+          >
+            Painel Completo (Fases 1–5)
+          </button>
+          <button
+            type="button"
             id="geoRadarOpen"
             className={activeNav === 'geoRadar' ? 'active' : ''}
             onClick={() => setActiveNav('geoRadar')}
@@ -586,7 +598,7 @@ export default function App() {
             className={activeNav === 'eventTrends' ? 'active' : ''}
             onClick={() => setActiveNav('eventTrends')}
           >
-            Tendências e Ingressos
+            Tendências e Oportunidades
           </button>
           <button
             type="button"
@@ -616,10 +628,25 @@ export default function App() {
       </header>
 
       <main>
-        {activeNav === 'geoRadar' ? (
-          <GeoAudienceRadar />
+        {activeNav === 'fases123' ? (
+          <>
+            <Radar />
+            <AudienceStatus />
+            <EventTrends />
+            <OpportunitiesRadar />
+          </>
+        ) : activeNav === 'geoRadar' ? (
+          <>
+            <AudienceStatus />
+            <Radar />
+            <GeoAudienceRadar />
+          </>
         ) : activeNav === 'eventTrends' ? (
-          <EventTrendsAndOpportunities />
+          <>
+            <EventTrends />
+            <OpportunitiesRadar />
+            <EventTrendsAndOpportunities />
+          </>
         ) : activeNav === 'growthDashboard' ? (
           <section id="growthDashboard">
             <div className="sectionhead">

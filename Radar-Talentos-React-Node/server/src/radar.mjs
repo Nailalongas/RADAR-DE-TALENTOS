@@ -1,75 +1,6 @@
-import { readFileSync } from 'node:fs';
-
 export class FilterError extends Error {}
 const fail = message => { throw new FilterError(message); };
 const regions = ['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'];
-const ufRegions = {
-  AC:'Norte',AP:'Norte',AM:'Norte',PA:'Norte',RO:'Norte',RR:'Norte',TO:'Norte',
-  AL:'Nordeste',BA:'Nordeste',CE:'Nordeste',MA:'Nordeste',PB:'Nordeste',PE:'Nordeste',PI:'Nordeste',RN:'Nordeste',SE:'Nordeste',
-  DF:'Centro-Oeste',GO:'Centro-Oeste',MT:'Centro-Oeste',MS:'Centro-Oeste',
-  ES:'Sudeste',MG:'Sudeste',RJ:'Sudeste',SP:'Sudeste',
-  PR:'Sul',RS:'Sul',SC:'Sul',
-};
-
-let cachedIbgeDataset = null;
-function loadBundledIbgeDataset() {
-  if (cachedIbgeDataset) return cachedIbgeDataset;
-  try {
-    const raw = readFileSync(
-      new URL('../../src/domain/ibge-municipios-data.json', import.meta.url),
-      'utf8'
-    );
-    cachedIbgeDataset = JSON.parse(raw);
-  } catch {
-    cachedIbgeDataset = [];
-  }
-  return cachedIbgeDataset;
-}
-
-export function seedBundledMunicipalities(db, version = '2026-11-17') {
-  const dataset = loadBundledIbgeDataset();
-  if (!dataset.length) return 0;
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const insMuni = db.prepare(
-      `INSERT INTO municipalities(code,name,uf,region,lat,lon,source,version,coordinate_source,coordinate_version)
-       VALUES (?,?,?,?,?,?,?,?,?,?)
-       ON CONFLICT(code) DO UPDATE SET
-         name=excluded.name, uf=excluded.uf, region=excluded.region,
-         lat=excluded.lat, lon=excluded.lon,
-         coordinate_source=excluded.coordinate_source, coordinate_version=excluded.coordinate_version`
-    );
-    const insGeo = db.prepare(
-      `INSERT OR IGNORE INTO geo_municipalities(ibge_code,name,uf,latitude,longitude,source_version)
-       VALUES (?,?,?,?,?,?)`
-    );
-    for (const [code, name, uf, lat, lon] of dataset) {
-      const region = ufRegions[uf];
-      if (!region) continue;
-      insMuni.run(
-        code,
-        name,
-        uf,
-        region,
-        lat,
-        lon,
-        'IBGE Localidades',
-        version,
-        lat != null ? 'IBGE Coordenadas Municipais' : null,
-        lat != null ? version : null
-      );
-      if (lat != null && lon != null) {
-        insGeo.run(code, name, uf, lat, lon, `IBGE Localidades ${version}`);
-      }
-    }
-    db.exec('COMMIT');
-    return dataset.length;
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
-}
-
 export function distanceKm(a,b) {
   const rad=Math.PI/180, dlat=(b.lat-a.lat)*rad, dlon=(b.lon-a.lon)*rad;
   const h=Math.sin(dlat/2)**2+Math.cos(a.lat*rad)*Math.cos(b.lat*rad)*Math.sin(dlon/2)**2;
@@ -78,11 +9,10 @@ export function distanceKm(a,b) {
 const date = s => /^\d{4}-\d{2}-\d{2}$/.test(s||'') && !isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0,10)===s;
 export function radarQuery(db,path,p) {
   const get=k=>p.get(k)||'';
+  if(path==='/api/radar/geography') {const asset=db.prepare('SELECT * FROM geographic_assets WHERE id=?').get('states');return {total:db.prepare('SELECT count(*) n FROM municipalities').get().n,coordinates:db.prepare('SELECT count(*) n FROM municipalities WHERE lat IS NOT NULL').get().n,states:asset?JSON.parse(asset.geojson):null,version:asset?.version??null};}
+  if(path==='/api/radar/reports') return db.prepare('SELECT network,metric,period_start,period_end,source,quality,count(*) records FROM regional_audience GROUP BY network,metric,period_start,period_end,source,quality ORDER BY period_end DESC').all();
   if(path==='/api/radar/modalities') return db.prepare('SELECT * FROM modalities ORDER BY name').all().map(m=>({...m,submodalities:db.prepare('SELECT id,name FROM submodalities WHERE modality_id=? ORDER BY name').all(m.id)}));
   if(path==='/api/radar/municipalities') {
-    if(db.prepare('SELECT count(*) n FROM municipalities').get().n === 0) {
-      seedBundledMunicipalities(db);
-    }
     const q=get('q').trim(); return {total:db.prepare('SELECT count(*) n FROM municipalities').get().n,items:db.prepare('SELECT * FROM municipalities WHERE name LIKE ? OR code=? ORDER BY name,uf LIMIT 100').all('%'+q+'%',q)};
   }
   if(path!=='/api/radar/ranking') return undefined;
@@ -105,6 +35,7 @@ export function radarQuery(db,path,p) {
   const talents=db.prepare(`SELECT id,name,entity_type FROM talents t WHERE blocked=0 AND (?='' OR EXISTS(SELECT 1 FROM talent_modalities m WHERE m.talent_id=t.id AND m.modality_id=?)) AND (?='' OR EXISTS(SELECT 1 FROM talent_submodalities s WHERE s.talent_id=t.id AND s.submodality_id=?)) AND (?='' OR t.id=?)`).all(modality,modality,sub,sub,get('talent'),get('talent'));
   const allowed=new Map(talents.map(t=>[t.id,t])); const rows=[]; const places=new Map(); let excludedCoordinates=0;
   if(mode==='national') {
+    // Uma conta por talento/rede: maior valor observado no fim, sem somar contas potencialmente sobrepostas.
     const data=db.prepare(`SELECT a.talent_id,a.id account_id,s.value,s.observed_on,s.source FROM social_accounts a JOIN metric_snapshots s ON s.account_id=a.id WHERE a.identity_confirmed=1 AND a.network=? AND s.metric=? AND (?='' OR s.observed_on>=?) AND (?='' OR s.observed_on<=?) ORDER BY s.observed_on DESC,s.id DESC`).all(network,metric,start,start,end,end);
     const accounts=new Map(); for(const r of data) if(allowed.has(r.talent_id)){ const a=accounts.get(r.account_id)||{last:r,first:r}; a.first=r; accounts.set(r.account_id,a); }
     const best=new Map(); for(const a of accounts.values()){ const old=best.get(a.last.talent_id); if(!old||a.last.observed_on>old.last.observed_on||(a.last.observed_on===old.last.observed_on&&(a.last.value>old.last.value||(a.last.value===old.last.value&&a.last.account_id<old.last.account_id)))) best.set(a.last.talent_id,a); }
@@ -114,7 +45,8 @@ export function radarQuery(db,path,p) {
     const sums=new Map(); for(const r of data){if(!allowed.has(r.talent_id)||(region&&r.region!==region)||(uf&&r.uf!==uf)||(city&&r.municipality_code!==city)) continue; if(origin&&r.lat===null){excludedCoordinates++;continue;} const d=origin?distanceKm(origin,r):null; if(origin&&d>Number(radius)) continue; const x=sums.get(r.talent_id)||{...allowed.get(r.talent_id),value:0,cities:0,source,quality}; x.value+=r.value;x.cities++;sums.set(r.talent_id,x); const place=places.get(r.municipality_code)||{code:r.municipality_code,name:r.city_name,uf:r.uf,region:r.region,lat:r.lat,lon:r.lon,distance_km:d,value:0};place.value+=r.value;places.set(r.municipality_code,place); }
     rows.push(...sums.values());
   }
+  const aggregate=field=>{const totals=new Map();for(const place of places.values())totals.set(place[field],(totals.get(place[field])||0)+place.value);return [...totals].map(([name,value])=>({name,value})).sort((a,b)=>b.value-a.value);};
   const key=order==='audience'?'value':order; const ranked=rows.filter(r=>r[key]!=null).sort((a,b)=>b[key]-a[key]||a.id.localeCompare(b.id)).map((r,i)=>({...r,rank:i+1}));
   const limit=Number(get('limit')||50), offset=Number(get('offset')||0); if(!Number.isInteger(limit)||limit<1||limit>200||!Number.isSafeInteger(offset)||offset<0) fail('Paginação inválida');
-  return {mode,network,metric,total:ranked.length,eligible:talents.length,items:ranked.slice(offset,offset+limit),places:[...places.values()].sort((a,b)=>b.value-a.value),excludedCoordinates,origin, radius:origin?Number(radius):null,notice:mode==='regional'?'Valores conhecidos por cidade; soma entre talentos não representa pessoas únicas.':'Conta confirmada mais recente por talento; empate pelo maior valor. Dados nacionais não indicam localização.'};
+  return {mode,network,metric,total:ranked.length,eligible:talents.length,items:ranked.slice(offset,offset+limit),places:[...places.values()].sort((a,b)=>b.value-a.value),byRegion:aggregate('region'),byState:aggregate('uf'),excludedCoordinates,origin, radius:origin?Number(radius):null,notice:mode==='regional'?'Valores conhecidos por cidade; soma entre talentos não representa pessoas únicas.':'Conta confirmada mais recente por talento; empate pelo maior valor. Dados nacionais não indicam localização.'};
 }

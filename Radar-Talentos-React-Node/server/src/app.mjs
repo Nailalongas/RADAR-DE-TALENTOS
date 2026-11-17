@@ -9,6 +9,9 @@ import {
   queryEvolution,
 } from './database/research.mjs';
 import { radarQuery, FilterError } from './radar.mjs';
+import { eventQuery } from './events.mjs';
+import { audienceStatus } from './audience.mjs';
+import { opportunitiesQuery } from './opportunities.mjs';
 import {
   queryGeoRegions,
   queryGeoStates,
@@ -147,6 +150,31 @@ export function createRadarServer({ database, adminToken } = {}) {
         return;
       }
 
+      if (path === '/api/audience/status') {
+        if (!database) {
+          res.writeHead(503).end();
+          return;
+        }
+        if (!checkDatabaseReady(database, req, res)) return;
+        sendJson(req, res, 200, audienceStatus(database));
+        return;
+      }
+
+      if (path === '/api/opportunities/intelligence') {
+        if (!database) {
+          res.writeHead(503).end();
+          return;
+        }
+        if (!checkDatabaseReady(database, req, res)) return;
+        sendJson(
+          req,
+          res,
+          200,
+          opportunitiesQuery(database, requestUrl.searchParams)
+        );
+        return;
+      }
+
       if (path === '/api/taxonomy') {
         if (!checkDatabaseReady(database, req, res)) return;
         sendJson(req, res, 200, queryTaxonomy(database));
@@ -242,6 +270,25 @@ export function createRadarServer({ database, adminToken } = {}) {
           sendJson(req, res, 400, { error: err.message });
         }
         return;
+      }
+
+      if (
+        path === '/api/events/platforms' ||
+        (path === '/api/events/trends' &&
+          (requestUrl.searchParams.has('start') ||
+            requestUrl.searchParams.has('end') ||
+            requestUrl.searchParams.has('basis')))
+      ) {
+        if (!database) {
+          res.writeHead(503).end();
+          return;
+        }
+        if (!checkDatabaseReady(database, req, res)) return;
+        const result = eventQuery(database, path, requestUrl.searchParams);
+        if (result !== undefined) {
+          sendJson(req, res, 200, result);
+          return;
+        }
       }
 
       if (

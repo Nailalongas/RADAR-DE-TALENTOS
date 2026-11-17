@@ -630,13 +630,13 @@ export function importEventsBatch(
       // Check if listing already exists for this platform + externalId/url
       const existingListing = db
         .prepare(
-          'SELECT id, event_id FROM event_listings WHERE (source_id = ? AND external_id = ?) OR (source_id = ? AND url = ?)'
+          'SELECT id, event_id FROM commercial_event_listings WHERE (source_id = ? AND external_id = ?) OR (source_id = ? AND url = ?)'
         )
         .get(sourceId, externalId, sourceId, url);
 
       if (existingListing) {
         db.prepare(
-          `UPDATE event_listings
+          `UPDATE commercial_event_listings
            SET last_detected_at = ?, status = ?, original_title = ?, original_category = ?
            WHERE id = ?`
         ).run(
@@ -647,7 +647,7 @@ export function importEventsBatch(
           existingListing.id
         );
         db.prepare(
-          `UPDATE events
+          `UPDATE commercial_events
            SET last_detected_at = ?, status = ?
            WHERE id = ?`
         ).run(detectedAt, status, existingListing.event_id);
@@ -657,14 +657,14 @@ export function importEventsBatch(
 
       // Check if canonical event already exists (e.g. announced on another platform!)
       let canonicalEvent = db
-        .prepare('SELECT id FROM events WHERE canonical_key = ?')
+        .prepare('SELECT id FROM commercial_events WHERE canonical_key = ?')
         .get(cKey);
 
       let eventId;
       if (canonicalEvent) {
         eventId = canonicalEvent.id;
         db.prepare(
-          `UPDATE events
+          `UPDATE commercial_events
            SET last_detected_at = max(last_detected_at, ?),
                first_published_at = coalesce(first_published_at, ?)
            WHERE id = ?`
@@ -673,7 +673,7 @@ export function importEventsBatch(
       } else {
         eventId = `evt-${randomUUID()}`;
         db.prepare(
-          `INSERT INTO events(
+          `INSERT INTO commercial_events(
              id, canonical_key, title, normalized_title, attraction_name, producer_name, venue_name,
              ibge_code, uf, region_code, latitude, longitude,
              primary_modality_id, primary_submodality_id, classification_confidence, needs_review,
@@ -715,7 +715,7 @@ export function importEventsBatch(
       }
 
       db.prepare(
-        `INSERT INTO event_listings(
+        `INSERT INTO commercial_event_listings(
            id, event_id, source_id, external_id, url, original_title, original_category,
            published_at, first_detected_at, last_detected_at, status
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -809,7 +809,7 @@ export function queryEventTrendsAndRankings(
     .prepare(
       `SELECT e.*, m.name AS modality_name, sm.name AS submodality_name,
               gm.name AS city_name, gm.population AS city_population
-       FROM events e
+       FROM commercial_events e
        JOIN event_modalities m ON m.id = e.primary_modality_id
        LEFT JOIN event_submodalities sm ON sm.id = e.primary_submodality_id
        LEFT JOIN geo_municipalities gm ON gm.ibge_code = e.ibge_code
@@ -821,7 +821,7 @@ export function queryEventTrendsAndRankings(
   const allListings = db
     .prepare(
       `SELECT el.*, es.name AS source_name
-       FROM event_listings el
+       FROM commercial_event_listings el
        JOIN event_sources es ON es.id = el.source_id`
     )
     .all();
@@ -1116,7 +1116,7 @@ export function querySourcesStatus(db) {
   const rows = db
     .prepare(
       `SELECT es.*,
-              (SELECT count(*) FROM event_listings el WHERE el.source_id = es.id) AS listings_count
+              (SELECT count(*) FROM commercial_event_listings el WHERE el.source_id = es.id) AS listings_count
        FROM event_sources es
        ORDER BY es.name ASC`
     )

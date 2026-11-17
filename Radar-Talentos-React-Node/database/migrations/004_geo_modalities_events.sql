@@ -298,7 +298,7 @@ INSERT INTO event_sources(id, name, segment, website_url, integration_state, cov
   ('uhuu', 'Uhuu', 'Espetáculos e entretenimento', 'https://uhuu.com', 'adapter_ready', 'Importação autorizada / teatros, musicais e arenas');
 
 -- Eventos Canonicos Deduplicados e Anuncios por Plataforma (Secao 9)
-CREATE TABLE events (
+CREATE TABLE commercial_events (
   id TEXT PRIMARY KEY NOT NULL,
   canonical_key TEXT NOT NULL UNIQUE,
   title TEXT NOT NULL CHECK(length(trim(title)) > 0),
@@ -333,13 +333,13 @@ CREATE TABLE events (
   CHECK(price_min IS NULL OR price_max IS NULL OR price_min <= price_max)
 ) STRICT;
 
-CREATE INDEX idx_events_modality ON events(primary_modality_id, primary_submodality_id);
-CREATE INDEX idx_events_ibge ON events(ibge_code);
-CREATE INDEX idx_events_dates ON events(event_date_start, first_detected_at);
+CREATE INDEX idx_commercial_events_modality ON commercial_events(primary_modality_id, primary_submodality_id);
+CREATE INDEX idx_commercial_events_ibge ON commercial_events(ibge_code);
+CREATE INDEX idx_commercial_events_dates ON commercial_events(event_date_start, first_detected_at);
 
-CREATE TABLE event_listings (
+CREATE TABLE commercial_event_listings (
   id TEXT PRIMARY KEY NOT NULL,
-  event_id TEXT NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  event_id TEXT NOT NULL REFERENCES commercial_events(id) ON DELETE CASCADE,
   source_id TEXT NOT NULL REFERENCES event_sources(id),
   external_id TEXT NOT NULL CHECK(length(trim(external_id)) > 0),
   url TEXT NOT NULL CHECK(url LIKE 'https://%'),
@@ -353,5 +353,5 @@ CREATE TABLE event_listings (
   UNIQUE(source_id, url)
 ) STRICT;
 
-CREATE INDEX idx_event_listings_event ON event_listings(event_id);
-CREATE INDEX idx_event_listings_source ON event_listings(source_id);
+CREATE INDEX idx_commercial_event_listings_event ON commercial_event_listings(event_id);
+CREATE INDEX idx_commercial_event_listings_source ON commercial_event_listings(source_id);

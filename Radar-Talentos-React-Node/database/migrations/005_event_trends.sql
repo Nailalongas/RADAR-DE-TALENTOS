@@ -1,0 +1,7 @@
+CREATE TABLE ticket_platforms(id TEXT PRIMARY KEY,name TEXT NOT NULL UNIQUE) STRICT;
+INSERT INTO ticket_platforms VALUES ('sympla','Sympla'),('eventim','Eventim'),('ticketmaster','Ticketmaster'),('ingresse','Ingresse'),('ticketsports','Ticket Sports'),('ticket360','Ticket360'),('blueticket','Blueticket'),('diskingressos','Disk Ingressos'),('bilheteriadigital','Bilheteria Digital'),('uhuu','Uhuu');
+CREATE TABLE events(id TEXT PRIMARY KEY,title TEXT NOT NULL,municipality_code TEXT NOT NULL REFERENCES municipalities(code),venue TEXT NOT NULL,event_date TEXT NOT NULL CHECK(date(event_date,'+0 days') IS event_date),modality_id TEXT NOT NULL REFERENCES modalities(id),submodality_id INTEGER,classification TEXT NOT NULL CHECK(classification IN ('provided','rule','unknown')),FOREIGN KEY(submodality_id,modality_id) REFERENCES submodalities(id,modality_id)) STRICT;
+CREATE TABLE event_listings(platform_id TEXT NOT NULL REFERENCES ticket_platforms(id),external_id TEXT NOT NULL,event_id TEXT NOT NULL REFERENCES events(id),url TEXT NOT NULL,first_seen TEXT NOT NULL,last_seen TEXT NOT NULL,published_on TEXT,status TEXT NOT NULL CHECK(status IN ('listed','cancelled','postponed','sold_out','unknown')),PRIMARY KEY(platform_id,external_id)) STRICT;
+CREATE INDEX event_listings_event ON event_listings(event_id);
+CREATE INDEX events_geo ON events(municipality_code,event_date);
+CREATE TABLE event_imports(id INTEGER PRIMARY KEY,platform_id TEXT NOT NULL REFERENCES ticket_platforms(id),observed_on TEXT NOT NULL,records INTEGER NOT NULL,source TEXT NOT NULL) STRICT;
