@@ -16,7 +16,13 @@
     "geo:sync": "node --experimental-sqlite scripts/sync-geography.mjs",
     "events:import": "node --experimental-sqlite scripts/import-events.mjs",
     "audience:import": "node --experimental-sqlite scripts/import-audience.mjs",
-    "events:coverage": "node --experimental-sqlite scripts/import-coverage.mjs"
+    "events:coverage": "node --experimental-sqlite scripts/import-coverage.mjs",
+    "ops:once": "node --experimental-sqlite scripts/operations.mjs once",
+    "ops:worker": "node --experimental-sqlite scripts/operations.mjs worker",
+    "ops:check": "node --experimental-sqlite scripts/operations.mjs check",
+    "db:backup": "node --experimental-sqlite scripts/backup.mjs",
+    "ops:doctor": "node --experimental-sqlite scripts/doctor.mjs",
+    "registry:import": "node --experimental-sqlite scripts/import-registry.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

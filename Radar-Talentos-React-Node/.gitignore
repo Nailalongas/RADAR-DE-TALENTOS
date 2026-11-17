@@ -12,6 +12,7 @@ data/*
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+config/operations.json
 
 .vercel/
 

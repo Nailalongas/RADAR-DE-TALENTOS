@@ -25,6 +25,8 @@ export function importAudience(db,report){
  db.exec('BEGIN IMMEDIATE');try{
  // Não substituir uma fotografia antiga por resposta vazia ou não resolvida.
  if(mapped.size){
+  const oldComplete=db.prepare("SELECT 1 FROM audience_import_runs WHERE account_id=? AND network=? AND metric=? AND source=? AND period_start=? AND period_end=? AND status='success'").get(account_id,network,metric,source,period_start,period_end);
+  if(status==='partial'&&oldComplete)throw Error('Relatório parcial não pode substituir fotografia completa');
   const existing=db.prepare('SELECT DISTINCT quality FROM regional_audience WHERE talent_id=? AND network=? AND metric=? AND source=? AND period_start=? AND period_end=?').all(account.talent_id,network,metric,source,period_start,period_end);
   if(existing.some(r=>r.quality!==quality))throw Error('Fonte já usada com outra qualidade');
   // Substituir a fotografia por relatório não vazio; nunca misturar fotografias parciais.

@@ -13,6 +13,7 @@ try {
   console.log('Municípios com coordenadas:', db.prepare('SELECT count(*) AS total FROM municipalities WHERE lat IS NOT NULL').get().total);
   console.log('Eventos únicos (Fase 3):', db.prepare('SELECT count(*) AS total FROM events').get().total);
   console.log('Declarações de cobertura (Fase 5):', db.prepare('SELECT count(*) AS total FROM event_coverage').get().total);
+  console.log('Jobs operacionais cadastrados (Fase 6):', db.prepare('SELECT count(*) AS total FROM operation_jobs').get().total);
 } finally {
   db.close();
 }

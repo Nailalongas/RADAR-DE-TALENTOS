@@ -4,18 +4,34 @@ const fail=m=>{throw new FilterError(m)};
 const date=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&!isNaN(Date.parse(s))&&new Date(s).toISOString().slice(0,10)===s;
 const norm=s=>s.normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 const required=(s,k)=>{if(typeof s!=='string'||!s.trim()||s.length>2000)fail('Campo inválido: '+k);return s.trim()};
-const rules=[['corridas',/\b(corrida de rua|maratona|trail run|meia maratona)\b/],['humor',/\b(stand up|standup|show de humor)\b/],['infantil',/\b(infantil|espetaculo infantil)\b/],['teatro',/\b(teatro|peca teatral|musical|ballet)\b/],['palestras',/\b(palestra|congresso|workshop|imersao|curso)\b/],['gastronomia',/\b(gastronomia|gastronomico|degustacao)\b/],['feiras',/\b(feira|exposicao|expo)\b/],['esportes',/\b(triatlo|ciclismo|futebol|jiu jitsu)\b/],['festivais',/\b(festival|festa)\b/],['shows',/\b(show|concerto|sertanejo|pagode|rock)\b/],['experiencias',/\b(experiencia|turismo)\b/]];
+const rules=[['corridas',/\b(corrida de rua|corrida infantil|corrida (?:de )?\d+ ?km|maratona|trail run|meia maratona)\b/],['humor',/\b(stand up|standup|show de humor)\b/],['infantil',/\b(infantil|espetaculo infantil)\b/],['teatro',/\b(teatro|peca teatral|musical|ballet)\b/],['palestras',/\b(palestra|congresso|workshop|imersao|curso)\b/],['gastronomia',/\b(gastronomia|gastronomico|degustacao)\b/],['feiras',/\b(feira|exposicao|expo)\b/],['esportes',/\b(triatlo|ciclismo|futebol|jiu jitsu)\b/],['festivais',/\b(festival|festa)\b/],['shows',/\b(show|concerto|sertanejo|pagode|rock)\b/],['experiencias',/\b(experiencia|turismo)\b/]];
 export function classifyEvent(title){const matches=rules.filter(([,r])=>r.test(norm(title)));return matches.length===1?matches[0][0]:'outros'}
-export function importEvents(db,{platform,observed_on,source,items}){
+// Infer only one explicitly identifiable subcategory; multi-distance races, mixed genres
+// and ambiguous titles stay unclassified rather than counting as one arbitrary segment.
+const subRules={
+ shows:[['Sertanejo',/\bsertanejo\b/],['Rock',/\brock\b/],['Pagode',/\bpagode\b/],['Samba',/\bsamba\b/],['MPB',/\bmpb\b/],['Gospel',/\bgospel\b/],['Forró',/\bforro\b/],['Pop',/\bpop\b/],['Funk',/\bfunk\b/]],
+ humor:[['Stand-up',/\b(stand up|standup)\b/],['Improvisação',/\bimprovisacao\b/],['Shows humorísticos',/\bshow de humor\b/]],
+ teatro:[['Musical',/\bmusical\b/],['Ballet',/\b(ballet|bale)\b/],['Ópera',/\bopera\b/],['Drama',/\bdrama\b/]],
+ corridas:[['5 km',/\b5 ?km\b/],['10 km',/\b10 ?km\b/],['Meia maratona',/\b(meia maratona|21 ?km)\b/],['Maratona',/\b(maratona|42 ?km)\b/],['Trail run',/\btrail run\b/],['Corrida infantil',/\bcorrida infantil\b/]],
+ esportes:[['Ciclismo',/\bciclismo\b/],['Triatlo',/\btriatlo\b/],['Lutas',/\b(jiu jitsu|boxe|lutas)\b/],['Futebol',/\bfutebol\b/]],
+ palestras:[['Liderança',/\blideranca\b/],['Vendas',/\bvendas\b/],['Finanças',/\b(financas|investimentos)\b/],['Saúde',/\bsaude\b/],['Tecnologia',/\btecnologia\b/]],
+ gastronomia:[['Cerveja',/\bcerveja\b/],['Vinho',/\bvinho\b/],['Degustações',/\bdegustacao\b/]],
+ feiras:[['Tecnologia',/\btecnologia\b/],['Geek',/\bgeek\b/],['Automóveis',/\b(automoveis|carros)\b/]]
+};
+export function classifySubmodality(db,title,modality){
+ const text=norm(title),matches=(subRules[modality]??[]).filter(([name,re])=>re.test(name==='Maratona'?text.replace(/\bmeia maratona\b/g,''):text));
+ if(matches.length!==1)return null;return db.prepare('SELECT id FROM submodalities WHERE modality_id=? AND name=?').get(modality,matches[0][0])?.id??null;
+}
+export function importEvents(db,{platform,observed_on,source,items},onCommit=null){
  if(!db.prepare('SELECT 1 FROM ticket_platforms WHERE id=?').get(platform??''))fail('Plataforma inválida'); if(!date(observed_on)||!Array.isArray(items))fail('Importação inválida');source=required(source,'source');
  db.exec('BEGIN IMMEDIATE');try{for(const raw of items){const title=required(raw.title,'title'),venue=required(raw.venue,'venue'),external=required(raw.external_id,'external_id'),url=required(raw.url,'url');let u;try{u=new URL(url)}catch{fail('URL inválida')}if(u.protocol!=='https:'||u.username||u.password)fail('URL inválida');if(!date(raw.event_date)||raw.published_on!=null&&(!date(raw.published_on)||raw.published_on>observed_on))fail('Datas inválidas');
  const city=required(raw.municipality_code,'municipality_code');if(!db.prepare('SELECT 1 FROM municipalities WHERE code=?').get(city))fail('Município desconhecido: '+city);
- const modality=raw.modality_id??classifyEvent(title);const classification=raw.modality_id?'provided':modality==='outros'?'unknown':'rule';const sub=raw.submodality_id??null;
+ const modality=raw.modality_id??classifyEvent(title);const classification=raw.modality_id?'provided':modality==='outros'?'unknown':'rule';const sub=raw.submodality_id===undefined?classifySubmodality(db,title,modality):raw.submodality_id;
  const id=createHash('sha256').update(JSON.stringify([norm(title),city,norm(venue),raw.event_date])).digest('hex');
  const old=db.prepare('SELECT * FROM event_listings WHERE platform_id=? AND external_id=?').get(platform,external);if(old&&old.event_id!==id)fail('Identidade alterada: revisar '+external+' antes de importar');
  db.prepare(`INSERT INTO events VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET modality_id=excluded.modality_id,submodality_id=excluded.submodality_id,classification=excluded.classification WHERE excluded.classification='provided' AND events.classification!='provided'`).run(id,title,city,venue,raw.event_date,modality,sub,classification);
  db.prepare(`INSERT INTO event_listings VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(platform_id,external_id) DO UPDATE SET first_seen=min(first_seen,excluded.first_seen),last_seen=max(last_seen,excluded.last_seen),published_on=coalesce(event_listings.published_on,excluded.published_on),status=CASE WHEN excluded.last_seen>=last_seen THEN excluded.status ELSE status END,url=CASE WHEN excluded.last_seen>=last_seen THEN excluded.url ELSE url END`).run(platform,external,id,url,observed_on,observed_on,raw.published_on??null,raw.status??'listed');
- }db.prepare('INSERT INTO event_imports(platform_id,observed_on,records,source) VALUES (?,?,?,?)').run(platform,observed_on,items.length,source);db.exec('COMMIT');return items.length;}catch(e){db.exec('ROLLBACK');throw e;}
+ }db.prepare('INSERT INTO event_imports(platform_id,observed_on,records,source) VALUES (?,?,?,?)').run(platform,observed_on,items.length,source);onCommit?.(items.length);db.exec('COMMIT');return items.length;}catch(e){db.exec('ROLLBACK');throw e;}
 }
 export function eventQuery(db,path,p){
  if(path==='/api/events/platforms')return db.prepare('SELECT p.*,max(i.observed_on) last_import,count(i.id) imports FROM ticket_platforms p LEFT JOIN event_imports i ON i.platform_id=p.id GROUP BY p.id ORDER BY p.name').all();

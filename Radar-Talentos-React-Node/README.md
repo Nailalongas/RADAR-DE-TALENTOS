@@ -64,6 +64,7 @@ npm test
 - `GET /api/audience/map` e `GET /api/audience/distribution` — Concentração geográfica de audiência.
 - `GET /api/events/trends`, `GET /api/events/rankings` e `GET /api/events/calendar` — Tendências de eventos publicados por modalidade, submodalidade, cidade, plataforma e mês.
 - `GET /api/opportunities` — Radar de oportunidades Fase 5 (cruzamento Audiência × Oferta com controle de cobertura `event_coverage`) e Matriz de oportunidades.
+- `GET /api/operations/status` — Central de gerenciamento de coletas, estado das tarefas automatizadas, últimas 50 execuções e alertas comerciais (Fase 6).
 - `GET /api/sources/status` — Estado das 10 fontes de ingressos.
 - `POST /api/admin/audience/import` e `POST /api/admin/events/import` — Importação autenticada via cabeçalho `Authorization: Bearer <RADAR_ADMIN_TOKEN>`.
 
@@ -74,3 +75,4 @@ npm test
 - [Fase 3 — Radar de Tendências de Eventos](docs/fase-3-eventos.md)
 - [Fase 4 — Integrações de Audiência Regional](docs/fase-4-audiencia.md)
 - [Fase 5 — Radar de Oportunidades](docs/fase-5-oportunidades.md) (inclui CLI `npm run events:coverage -- cobertura.json`)
+- [Fase 6 — Automação, Coletas, Segurança e Produção](docs/fase-6-operacao.md) (inclui `npm run ops:check`, `npm run ops:doctor`, `npm run ops:once`, `npm run ops:worker` e `npm run db:backup`)

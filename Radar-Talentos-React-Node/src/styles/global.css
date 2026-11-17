@@ -245,3 +245,60 @@ svg.geo {
   height: 14px;
   accent-color: #226f9b;
 }
+
+.ops-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ops-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(155px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+.ops-kpi {
+  border: 1px solid #c4d8e7;
+  border-radius: 8px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #f5f9fc;
+}
+.ops-kpi strong {
+  font-size: 26px;
+  line-height: 1.2;
+}
+.ops-kpi span,
+.ops-meta {
+  font-size: 13px;
+  color: #456279;
+}
+.ops-meta {
+  display: block;
+}
+.ops-state {
+  font-weight: 600;
+}
+.ops-attention {
+  color: #905010;
+}
+.ops-alert {
+  border-top: 1px solid #dde6ec;
+  padding: 12px 0;
+}
+.ops-alert p {
+  margin: 5px 0;
+}
+.ops-alert small {
+  color: #456279;
+}
+.ops-heading p {
+  margin: 6px 0;
+}
+.ops-heading button {
+  white-space: nowrap;
+}

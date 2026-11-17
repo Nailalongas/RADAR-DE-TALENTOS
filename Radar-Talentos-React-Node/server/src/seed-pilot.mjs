@@ -839,61 +839,96 @@ export function seedPilotDatabaseIfEmpty(db) {
 function ensurePilotCoverageIfEmpty(db) {
   try {
     const covCount = db.prepare('SELECT count(*) AS n FROM event_coverage').get();
-    if (covCount && covCount.n > 0) return;
     const impCount = db.prepare('SELECT count(*) AS n FROM event_imports').get();
-    if (!impCount || impCount.n === 0) return;
+    if ((!covCount || covCount.n === 0) && impCount && impCount.n > 0) {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const startWindowStr = new Date(Date.now() - 29 * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      const coveredPlatforms = [
+        'diskingressos',
+        'eventim',
+        'ticketsports',
+        'sympla',
+        'ingresse',
+        'uhuu',
+        'blueticket',
+      ];
+      const coveredCities = [
+        '4106902',
+        '4125506',
+        '4119905',
+        '4118204',
+        '4113700',
+        '4115200',
+        '4209102',
+        '4202404',
+        '4208203',
+        '4202008',
+        '4205407',
+        '4314902',
+        '3550308',
+        '3509502',
+        '3304557',
+        '3106200',
+        '5300108',
+        '5208707',
+        '2927408',
+        '2611606',
+        '2304400',
+        '1302603',
+        '1501402',
+      ];
+      const coverageItems = [];
+      for (const platform of coveredPlatforms) {
+        for (const city of coveredCities) {
+          coverageItems.push({
+            platform,
+            city,
+            start: startWindowStr,
+            end: todayStr,
+            basis: 'first_seen',
+            evidence: `Catálogo piloto verificado (${platform})`,
+          });
+        }
+      }
+      importCoverage(db, coverageItems);
+    }
+  } catch {}
 
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const startWindowStr = new Date(Date.now() - 29 * 86400000)
-      .toISOString()
-      .slice(0, 10);
-    const coveredPlatforms = [
-      'diskingressos',
-      'eventim',
-      'ticketsports',
-      'sympla',
-      'ingresse',
-      'uhuu',
-      'blueticket',
-    ];
-    const coveredCities = [
-      '4106902',
-      '4125506',
-      '4119905',
-      '4118204',
-      '4113700',
-      '4115200',
-      '4209102',
-      '4202404',
-      '4208203',
-      '4202008',
-      '4205407',
-      '4314902',
-      '3550308',
-      '3509502',
-      '3304557',
-      '3106200',
-      '5300108',
-      '5208707',
-      '2927408',
-      '2611606',
-      '2304400',
-      '1302603',
-      '1501402',
-    ];
-    const coverageItems = [];
-    for (const platform of coveredPlatforms) {
-      for (const city of coveredCities) {
-        coverageItems.push({
-          platform,
-          city,
-          start: startWindowStr,
-          end: todayStr,
-          basis: 'first_seen',
-          evidence: `Catálogo piloto verificado (${platform})`,
-        });
+  try {
+    const jobsCount = db.prepare('SELECT count(*) AS n FROM operation_jobs').get();
+    if (!jobsCount || jobsCount.n === 0) {
+      const exPath = new URL('../../config/operations.example.json', import.meta.url);
+      const exCfg = JSON.parse(readFileSync(exPath, 'utf8'));
+      const nowIso = new Date().toISOString();
+      const stmt = db.prepare(
+        'INSERT OR IGNORE INTO operation_jobs(id,kind,provider,adapter,scope,config_hash,enabled,updated_at) VALUES(?,?,?,?,?,?,?,?)'
+      );
+      for (const j of exCfg.jobs || []) {
+        const scope =
+          j.adapter === 'ticketmaster'
+            ? 'Discovery Brasil / páginas retornadas'
+            : j.adapter === 'sympla'
+              ? 'Eventos públicos do produtor autorizado'
+              : j.adapter === 'ingresse'
+                ? 'Eventos públicos da organização autorizada'
+                : j.adapter === 'youtube'
+                  ? 'Canal autorizado / relatório por cidade'
+                  : j.kind === 'alerts'
+                    ? 'Alertas internos dos recortes configurados'
+                    : j.scope || 'Feed autorizado / escopo configurável';
+        stmt.run(
+          j.id,
+          j.kind,
+          j.provider,
+          j.adapter,
+          scope,
+          'pilot-config-v1',
+          j.enabled ? 1 : 0,
+          nowIso
+        );
       }
     }
-    importCoverage(db, coverageItems);
   } catch {}
 }

@@ -12,6 +12,8 @@ import { radarQuery, FilterError } from './radar.mjs';
 import { eventQuery } from './events.mjs';
 import { audienceStatus } from './audience.mjs';
 import { opportunitiesQuery, opportunityQuery } from './opportunities.mjs';
+import { operationsStatus } from './operations.mjs';
+import { authenticate } from './security.mjs';
 import {
   queryGeoRegions,
   queryGeoStates,
@@ -86,69 +88,123 @@ const POST_ADMIN_ROUTES = new Set([
   '/api/admin/events/import',
 ]);
 
-export function createRadarServer({ database, adminToken } = {}) {
-  return createServer(async (req, res) => {
-    try {
-      const requestUrl = new URL(req.url, 'http://localhost');
-      const path = decodeURIComponent(requestUrl.pathname);
-
-      if (POST_ADMIN_ROUTES.has(path)) {
-        if (req.method !== 'POST') {
-          res.writeHead(405, { Allow: 'POST' }).end();
-          return;
+export function createRadarServer({ database, adminToken, security = null } = {}) {
+  const requests = new Map();
+  return createServer(
+    { requestTimeout: 30000, headersTimeout: 15000, maxHeaderSize: 16384 },
+    async (req, res) => {
+      try {
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('X-Frame-Options', 'DENY');
+        res.setHeader('Referrer-Policy', 'no-referrer');
+        res.setHeader('Cache-Control', 'no-store');
+        if (security) {
+          res.setHeader(
+            'Content-Security-Policy',
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+          );
         }
-        if (!isAuthorizedAdmin(req, adminToken)) {
-          sendJson(req, res, 401, {
-            error: 'Acesso não autorizado. Informe o token administrativo válido.',
-          });
-          return;
+        const now = Date.now();
+        const ip = req.socket.remoteAddress;
+        if (requests.size > 10000) {
+          for (const [k, v] of requests) {
+            if (now - v.start >= 60000) requests.delete(k);
+          }
         }
-        if (!checkDatabaseReady(database, req, res)) return;
-        try {
-          const body = await readJsonBody(req);
-          if (path === '/api/admin/audience/import') {
-            sendJson(res ? req : req, res, 200, importRegionalAudience(database, body));
+        let rate = requests.get(ip);
+        if (!rate || now - rate.start >= 60000) {
+          rate = { start: now, count: 0 };
+          if (requests.size < 10000 || requests.has(ip)) {
+            requests.set(ip, rate);
+          } else {
+            res.writeHead(429).end();
             return;
           }
-          if (path === '/api/admin/events/import') {
-            sendJson(req, res, 200, importEventsBatch(database, body));
-            return;
-          }
-        } catch (err) {
-          sendJson(req, res, 400, { error: err.message || 'Dados inválidos.' });
+        }
+        if (++rate.count > 300) {
+          res.writeHead(429, { 'Retry-After': '60' }).end();
           return;
         }
-      }
 
-      if (!['GET', 'HEAD'].includes(req.method)) {
-        res.writeHead(405, { Allow: 'GET, HEAD' }).end();
-        return;
-      }
+        const requestUrl = new URL(req.url, 'http://localhost');
+        const path = decodeURIComponent(requestUrl.pathname);
 
-      if (path === '/api/health') {
-        if (database) {
-          try {
-            database.prepare('SELECT 1').get();
-          } catch {
-            res.writeHead(503, {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-store',
+        if (POST_ADMIN_ROUTES.has(path)) {
+          if (req.method !== 'POST') {
+            res.writeHead(405, { Allow: 'POST' }).end();
+            return;
+          }
+          if (!isAuthorizedAdmin(req, adminToken)) {
+            sendJson(req, res, 401, {
+              error: 'Acesso não autorizado. Informe o token administrativo válido.',
             });
-            res.end(
-              req.method === 'HEAD' ? undefined : JSON.stringify({ ok: false })
-            );
+            return;
+          }
+          if (!checkDatabaseReady(database, req, res)) return;
+          try {
+            const body = await readJsonBody(req);
+            if (path === '/api/admin/audience/import') {
+              sendJson(res ? req : req, res, 200, importRegionalAudience(database, body));
+              return;
+            }
+            if (path === '/api/admin/events/import') {
+              sendJson(req, res, 200, importEventsBatch(database, body));
+              return;
+            }
+          } catch (err) {
+            sendJson(req, res, 400, { error: err.message || 'Dados inválidos.' });
             return;
           }
         }
-        res.writeHead(200, {
-          'Content-Type': 'application/json',
-          'Cache-Control': 'no-store',
-        });
-        res.end(
-          req.method === 'HEAD' ? undefined : JSON.stringify({ ok: true })
-        );
-        return;
-      }
+
+        if (!['GET', 'HEAD'].includes(req.method)) {
+          res.writeHead(405, { Allow: 'GET, HEAD' }).end();
+          return;
+        }
+
+        if (path === '/api/health') {
+          if (database) {
+            try {
+              database.prepare('SELECT 1').get();
+            } catch {
+              res.writeHead(503, {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-store',
+              });
+              res.end(
+                req.method === 'HEAD' ? undefined : JSON.stringify({ ok: false })
+              );
+              return;
+            }
+          }
+          res.writeHead(200, {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store',
+          });
+          res.end(
+            req.method === 'HEAD' ? undefined : JSON.stringify({ ok: true })
+          );
+          return;
+        }
+
+        if (!authenticate(req, security)) {
+          res
+            .writeHead(401, {
+              'WWW-Authenticate': 'Basic realm="Radar", charset="UTF-8"',
+            })
+            .end();
+          return;
+        }
+
+        if (path === '/api/operations/status') {
+          if (!database) {
+            res.writeHead(503).end();
+            return;
+          }
+          if (!checkDatabaseReady(database, req, res)) return;
+          sendJson(req, res, 200, operationsStatus(database));
+          return;
+        }
 
       if (path === '/api/audience/status') {
         if (!database) {

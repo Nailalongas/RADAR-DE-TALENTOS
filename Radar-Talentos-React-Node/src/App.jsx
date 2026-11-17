@@ -40,6 +40,7 @@ import EventTrends from './EventTrends.jsx';
 import AudienceStatus from './AudienceStatus.jsx';
 import Opportunities from './Opportunities.jsx';
 import OpportunitiesRadar from './OpportunitiesRadar.jsx';
+import Operations from './Operations.jsx';
 
 function loadSavedSet(key) {
   try {
@@ -583,7 +584,15 @@ export default function App() {
             className={activeNav === 'fases123' ? 'active' : ''}
             onClick={() => setActiveNav('fases123')}
           >
-            Painel Completo (Fases 1–5)
+            Painel Completo (Fases 1–6)
+          </button>
+          <button
+            type="button"
+            id="operationsOpen"
+            className={activeNav === 'operations' ? 'active' : ''}
+            onClick={() => setActiveNav('operations')}
+          >
+            Central de Coletas (Fase 6)
           </button>
           <button
             type="button"
@@ -636,6 +645,12 @@ export default function App() {
             <EventTrends />
             <Opportunities />
             <OpportunitiesRadar />
+            <Operations />
+          </>
+        ) : activeNav === 'operations' ? (
+          <>
+            <Operations />
+            <AudienceStatus />
           </>
         ) : activeNav === 'geoRadar' ? (
           <>
