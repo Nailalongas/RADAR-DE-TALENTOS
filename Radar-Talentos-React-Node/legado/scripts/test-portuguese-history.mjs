@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const rows=['pt','en','es','unknown',undefined].map((language,i)=>({nome:'Perfil '+i,rede:'YouTube',channelId:'id'+i,data:'2026-10-23',contentLanguage:language}));
+const ctx=vm.createContext({historyRows:async()=>rows});
+vm.runInContext(fs.readFileSync('worker/content-language.js','utf8'),ctx);
+const env={BUCKET:{get:async()=>({json:async()=>({'YouTube|id0':{language:'en'},'YouTube|id3':{language:'pt'}})})}};
+ctx.env=env;
+const result=await vm.runInContext('portugueseHistory(env)',ctx);
+assert.deepEqual(Array.from(result.rows,r=>r.nome),['Perfil 3']);
+assert.equal(result.rows[0].contentLanguage,'pt');
+assert.equal(result.languageFilter.pending,1);
+console.log('Only Portuguese evidence passes; unknown, other languages and index overrides verified');
