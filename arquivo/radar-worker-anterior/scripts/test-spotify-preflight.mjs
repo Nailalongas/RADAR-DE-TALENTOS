@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const ctx=vm.createContext({Date,URL,JSON,Promise,Object,Intl});
+vm.runInContext(fs.readFileSync('worker/spotify-config.js','utf8'),ctx);
+let calls=[];
+ctx.spotifyReadApify=async(env,path)=>{calls.push(path);if(path==='users/me/limits')throw Error('HTTP 403');return {data:path.includes('/runs?')?{items:[{id:'test',status:'SUCCEEDED',usageTotalUsd:.02,secret:'never-return'}]}:{id:'actor',pricingInfos:[{pricingModel:'PAY_PER_EVENT'}],token:'never-return'}};};
+const r=await ctx.spotifyPreflight({},{});
+assert.equal(r.readOnly,true);assert.equal(r.limits.ok,false);assert.equal(r.actor.ok,true);assert.equal(r.runs.items[0].usageTotalUsd,.02);assert.equal(JSON.stringify(r).includes('never-return'),false);assert.equal(calls.length,3);
+console.log('PASS Spotify preflight: read-only allowlisted probes, partial permission failures, no secret fields');

@@ -1,0 +1,16 @@
+node_modules/
+/dist/
+.env
+.env.*
+!.env.example
+
+.npm-cache/
+
+# Banco local e arquivos auxiliares SQLite
+data/*
+!data/.gitkeep
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+.vercel/

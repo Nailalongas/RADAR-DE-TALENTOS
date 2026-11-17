@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Radar: backend",
+      "type": "npm",
+      "script": "dev",
+      "problemMatcher": []
+    },
+    {
+      "label": "Radar: frontend",
+      "type": "npm",
+      "script": "dev:web",
+      "problemMatcher": []
+    },
+    {
+      "label": "Radar: testes",
+      "type": "npm",
+      "script": "test",
+      "problemMatcher": [],
+      "group": "test"
+    },
+    {
+      "label": "Radar: build",
+      "type": "npm",
+      "script": "build",
+      "problemMatcher": [],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "Radar: inicializar banco",
+      "type": "npm",
+      "script": "db:init",
+      "problemMatcher": []
+    }
+  ]
+}

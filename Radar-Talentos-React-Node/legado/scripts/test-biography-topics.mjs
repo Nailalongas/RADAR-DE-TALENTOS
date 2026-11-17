@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const ctx=vm.createContext({});
+vm.runInContext(fs.readFileSync('worker/taxonomy.js','utf8'),ctx);
+const infer=p=>JSON.parse(vm.runInContext('JSON.stringify(suggestedBiographyTopics('+JSON.stringify(p)+'))',ctx));
+assert.deepEqual(infer({nome:'Afonso Padilha',categoria:'Humoristas',description:''}),[]);
+assert.deepEqual(infer({categoria:'Humoristas',description:'Comediante de stand up e improvisação.'}),['Humoristas|Stand-up','Humoristas|Improviso']);
+assert.deepEqual(infer({categoria:'Cantores',description:'Show de stand-up'}),[]);
+assert.deepEqual(infer({categoria:'Palestrantes',description:'Palestras de liderança e vendas.'}),['Palestrantes|Vendas','Palestrantes|Liderança']);
+console.log('Biography evidence, category boundaries and no name-only inference passed');

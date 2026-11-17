@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+import vm from 'node:vm';
+import assert from 'node:assert/strict';
+const taxonomy=fs.readFileSync('worker/taxonomy.js','utf8');
+assert.ok(fs.readFileSync('web/index.html','utf8').includes(taxonomy.trim()),'Client and server taxonomy must agree');
+const db=new Map();
+const bucket={get:async k=>db.has(k)?{json:async()=>structuredClone(db.get(k))}:null,put:async(k,v)=>db.set(k,JSON.parse(v))};
+const ctx=vm.createContext({crypto:globalThis.crypto,URL,Date,Set,Map});
+vm.runInContext(taxonomy+fs.readFileSync('worker/curation.js','utf8')+`;curatedHistory=async()=>({rows:[{rede:'YouTube',url:'https://youtube.com/channel/test'}]});categories=Object.keys(talentTaxonomy);json=x=>x;globalThis.save=curationApi;`,ctx);
+const body={nome:'Talento',categorias:['Palestrantes','Influenciadores'],subcategorias:['Palestrantes|Vendas','Palestrantes|Liderança','Influenciadores|Finanças'],entityType:'person',profiles:['YouTube|youtube.com/channel/test']};
+const req=b=>({headers:new Map([['oai-authenticated-user-id','test']]),json:async()=>structuredClone(b)});
+await ctx.save(req(body),{BUCKET:bucket});
+assert.deepEqual(db.get('indexes/talent-curation.json')[body.profiles[0]].subcategorias,body.subcategorias,'Save multiple themes durably');
+await assert.rejects(()=>ctx.save(req({...body,subcategorias:['Cantores|Rock']}),{BUCKET:bucket}),/subcategorias/);
+await ctx.save(req({...body,subcategorias:[]}),{BUCKET:bucket});
+assert.deepEqual(db.get('indexes/talent-curation.json')[body.profiles[0]].subcategorias,[],'Allow clearing all themes');
+console.log('Taxonomy persistence and parent validation passed');

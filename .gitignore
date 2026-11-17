@@ -1,0 +1,22 @@
+# Dependências e saídas geradas
+node_modules/
+dist/
+.npm-cache/
+coverage/
+**/worker/index.js
+
+# Configuração local e bancos
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+
+# Logs e arquivos do sistema
+*.log
+.DS_Store
+Thumbs.db
