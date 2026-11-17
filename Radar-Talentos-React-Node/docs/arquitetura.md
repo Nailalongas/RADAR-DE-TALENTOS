@@ -3,14 +3,28 @@
 ```text
 Radar-Talentos-React-Node/
 ├── src/
-│   ├── main.jsx          # Montagem do React
-│   ├── App.jsx           # Tela inicial e estado de conexão
-│   ├── services/api.js   # Consulta ao backend
+│   ├── main.jsx                       # Montagem do React
+│   ├── App.jsx                        # Pesquisa, navegação e painel de evolução
+│   ├── components/
+│   │   ├── ResearchFilters.jsx        # Filtros de redes, categorias, período, temas e faixas
+│   │   ├── ResultSummary.jsx          # Resumo da consulta e motivos de exclusão
+│   │   ├── ResearchTable.jsx          # Tabelas de descoberta e crescimento com paginação
+│   │   └── TalentDetailModal.jsx      # Detalhe e gráficos de evolução do talento
+│   ├── domain/
+│   │   ├── taxonomy.js                # Categorias, subcategorias e validação hierárquica
+│   │   └── research.js                # Identidade, agrupamento, análise e exportação CSV
+│   ├── services/api.js                # Consultas ao backend e cache de pesquisa
 │   └── styles/global.css
 ├── server/src/
-│   ├── app.mjs           # Servidor HTTP, API e arquivos compilados
-│   └── index.mjs         # Inicialização, host e porta
-├── tests/server.test.mjs
+│   ├── app.mjs                        # Servidor HTTP, API e arquivos compilados
+│   ├── index.mjs                      # Inicialização, host e porta
+│   └── database/
+│       ├── index.mjs                  # Conexão SQLite e aplicação de migrações
+│       └── research.mjs               # Consultas de taxonomia, pesquisa, histórico e evolução
+├── tests/
+│   ├── server.test.mjs
+│   ├── database.test.mjs
+│   └── research.test.mjs
 ├── docs/
 ├── legado/
 ├── .vscode/tasks.json

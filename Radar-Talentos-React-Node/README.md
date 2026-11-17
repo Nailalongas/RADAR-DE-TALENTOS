@@ -1,53 +1,68 @@
-# Radar de Talentos — React e Node.js
+# Radar de Talentos — Inteligência de Mercado para Eventos (React e Node.js)
 
-Projeto principal para migração do Radar. A interface React consulta a rota de status do backend Node. Pesquisa, mapa, relatórios, armazenamento e coletas ainda precisam ser migrados.
+Plataforma nacional de inteligência comercial para descoberta de talentos, concentração geográfica de audiência (Instagram, YouTube e Spotify), monitoramento de modalidades de eventos nas 10 principais plataformas de ingressos e cruzamento de oportunidades comerciais.
 
-## Desenvolvimento
+## Módulos Implementados
 
-Use Node.js 22.12 ou superior. Abra `../Radar-Talentos.code-workspace` no VS Code e execute nesta pasta:
+1. **Descobrir Talentos e Rankings de Crescimento**:
+   - Filtros por rede (`Instagram`, `YouTube`, `Spotify`), modos de comparação (`Redes disponíveis`, `Duas redes`, `Três redes` nos últimos 7 dias), 8 categorias e 58 subcategorias/temas, período e faixa de público.
+   - Agrupamento por identidade de talento (`sameTalentIdentity`, variantes de nome e duplas, rejeição de fã-clubes/covers).
+   - Gráficos de evolução percentual e diária (preservando lacunas sem estimar ou inventar zeros), favoritos, arquivos de pesquisa e exportação CSV.
+2. **Radar Geográfico de Audiência e Filtro por Raio (km)**:
+   - Base geográfica nacional (5 macrorregiões, 27 UFs e municípios com código IBGE de 7 dígitos, coordenadas WGS84, população Censo IBGE 2022 e PIB per capita).
+   - Cálculo geodésico em linha reta (fórmula de Haversine, raio médio terrestre de `6.371 km`), com presets de `25` a `1.000 km` ou valor personalizado, interseção com Região/UF e desambiguação de municípios homônimos por UF/IBGE.
+   - Separação estrita de métricas por plataforma (`seguidores`, `visualizacoes`, `minutos_assistidos`, `alcance`, `ouvintes`), visão absoluta e por `100 mil habitantes`, e importação idempotente de relatórios CSV/JSON autorizados.
+3. **Radar de Tendências de Eventos, 10 Plataformas de Ingressos e Oportunidades Comerciais**:
+   - Taxonomia canônica de **12 modalidades** e **66 submodalidades** de eventos (`Shows e música`, `Teatro e espetáculos`, `Humor`, `Palestras e educação`, `Corridas`, `Esportes`, `Festas e festivais`, `Infantil e família`, `Gastronomia`, `Feiras e exposições`, `Experiências e turismo`, `Outros / não classificado`).
+   - Cadastro e adaptadores para as **10 plataformas de ingressos** (`Sympla`, `Eventim`, `Ticketmaster`, `Ingresse`, `Ticket Sports`, `Ticket360`, `Blueticket`, `Disk Ingressos`, `Bilheteria Digital` e `Uhuu`).
+   - Deduplicação canônica multi-plataforma (um mesmo evento anunciado em mais de uma plataforma conta uma única vez no ranking geral e preserva todas as origens).
+   - **Matriz de Oportunidades Comerciais (4 quadrantes)**: cruzamento entre audiência regional e oferta de eventos publicados, sinalizando explicitamente municípios com cobertura insuficiente sem tratar ausência de dados como zero.
+
+## Desenvolvimento e Execução Local
+
+Requer **Node.js 22.12 ou superior**. Na pasta `Radar-Talentos-React-Node`:
 
 ```sh
 npm install
+npm run db:init
+npm test
 ```
 
-Em dois terminais:
+Para iniciar em desenvolvimento (backend na porta `3000` e Vite com proxy `/api`):
 
 ```sh
 npm run dev
-```
-
-```sh
 npm run dev:web
 ```
 
-Abra o endereço mostrado pelo Vite. O backend usa `http://127.0.0.1:3000`; o Vite encaminha `/api` para essa porta.
-
-## Verificação e build
+Para compilar e servir em produção local:
 
 ```sh
-npm test
 npm run build
 npm start
 ```
 
-Os testes verificam o servidor local. Após o build, `npm start` serve o frontend compilado e a API. Configure `HOST` e `PORT` no ambiente de hospedagem quando necessário. Se alterar a porta do backend no desenvolvimento, ajuste também o proxy em `vite.config.mjs`.
+Para executar a suíte de 21 testes de aceitação do legado:
 
-## Organização
+```sh
+cd legado
+npm test
+```
 
-- `src/`: frontend React, estilos e acesso à API.
-- `server/src/`: aplicação HTTP e inicialização do backend.
-- `tests/`: testes da versão Node.
-- `docs/`: arquitetura e plano de migração.
-- `legado/`: fontes, testes e documentação do Worker original.
-- `dist/`: frontend compilado, gerado pelo Vite.
-- `.vscode/`: tarefas para executar no VS Code.
+## Principais Rotas da API
 
-Consulte [a arquitetura](docs/arquitetura.md) e [a migração](docs/migracao.md). O pacote não contém as credenciais nem a base da hospedagem.
-
-## Banco de dados
-
-O banco local SQLite fica em `data/radar.sqlite`. Execute `npm run db:init` para criá-lo; o backend também aplica as migrações ao iniciar. Não exige instalação adicional de dependências. Consulte [o modelo e os comandos](docs/banco-de-dados.md). A base é criada sem talentos ou métricas fictícias.
-
-## Vercel
-
-A configuração da estrutura inicial está em `vercel.json` e `api/health.js`. Para publicar este repositório, selecione `Radar-Talentos-React-Node` como Root Directory. Consulte [o guia Vercel](VERCEL.md), incluindo a diferença entre o banco local e o armazenamento necessário em produção.
+- `GET /api/health` — Status do processo e conexão com o banco SQLite.
+- `GET /api/taxonomy` — Categorias e subcategorias de talentos.
+- `GET /api/modalities` — 12 modalidades e 66 submodalidades de eventos.
+- `GET /api/geo/regions` — 5 macrorregiões brasileiras e UFs.
+- `GET /api/geo/states?region=` — 27 estados com coordenadas.
+- `GET /api/geo/municipalities?search=&uf=&region=` — Municípios IBGE com desambiguação.
+- `GET /api/geo/radius?municipalityId=&radiusKm=&uf=&region=` — Filtro geodésico Haversine por raio em km.
+- `GET /api/research?start=&end=` — Resumo compacto para descoberta de talentos.
+- `GET /api/history` — Histórico completo de snapshots.
+- `GET /api/evolution?personId=&name=` — Histórico isolado por talento.
+- `GET /api/audience/map` e `GET /api/audience/distribution` — Concentração geográfica de audiência.
+- `GET /api/events/trends`, `GET /api/events/rankings` e `GET /api/events/calendar` — Tendências de eventos publicados por modalidade, submodalidade, cidade, plataforma e mês.
+- `GET /api/opportunities` — Matriz de oportunidades (Audiência × Oferta de eventos).
+- `GET /api/sources/status` — Estado das 10 fontes de ingressos.
+- `POST /api/admin/audience/import` e `POST /api/admin/events/import` — Importação autenticada via cabeçalho `Authorization: Bearer <RADAR_ADMIN_TOKEN>`.
