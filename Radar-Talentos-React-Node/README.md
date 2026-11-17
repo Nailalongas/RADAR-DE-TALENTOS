@@ -9,8 +9,8 @@ Plataforma nacional de inteligência comercial para descoberta de talentos, conc
    - Agrupamento por identidade de talento (`sameTalentIdentity`, variantes de nome e duplas, rejeição de fã-clubes/covers).
    - Gráficos de evolução percentual e diária (preservando lacunas sem estimar ou inventar zeros), favoritos, arquivos de pesquisa e exportação CSV.
 2. **Radar Geográfico de Audiência e Filtro por Raio (km)**:
-   - Base geográfica nacional (5 macrorregiões, 27 UFs e municípios com código IBGE de 7 dígitos, coordenadas WGS84, população Censo IBGE 2022 e PIB per capita).
-   - Cálculo geodésico em linha reta (fórmula de Haversine, raio médio terrestre de `6.371 km`), com presets de `25` a `1.000 km` ou valor personalizado, interseção com Região/UF e desambiguação de municípios homônimos por UF/IBGE.
+   - Base geográfica nacional (5 macrorregiões, 27 UFs e municípios com código municipal de 7 dígitos, coordenadas WGS84, população Censo 2022 e PIB per capita).
+   - Cálculo geodésico em linha reta (fórmula de Haversine, raio médio terrestre de `6.371 km`), com presets de `25` a `1.000 km` ou valor personalizado, interseção com Região/UF e desambiguação de municípios homônimos por UF e código.
    - Separação estrita de métricas por plataforma (`seguidores`, `visualizacoes`, `minutos_assistidos`, `alcance`, `ouvintes`), visão absoluta e por `100 mil habitantes`, e importação idempotente de relatórios CSV/JSON autorizados.
 3. **Radar de Tendências de Eventos, 10 Plataformas de Ingressos e Oportunidades Comerciais**:
    - Taxonomia canônica de **12 modalidades** e **66 submodalidades** de eventos (`Shows e música`, `Teatro e espetáculos`, `Humor`, `Palestras e educação`, `Corridas`, `Esportes`, `Festas e festivais`, `Infantil e família`, `Gastronomia`, `Feiras e exposições`, `Experiências e turismo`, `Outros / não classificado`).
@@ -56,7 +56,7 @@ npm test
 - `GET /api/modalities` — 12 modalidades e 66 submodalidades de eventos.
 - `GET /api/geo/regions` — 5 macrorregiões brasileiras e UFs.
 - `GET /api/geo/states?region=` — 27 estados com coordenadas.
-- `GET /api/geo/municipalities?search=&uf=&region=` — Municípios IBGE com desambiguação.
+- `GET /api/geo/municipalities?search=&uf=&region=` — Municípios com desambiguação.
 - `GET /api/geo/radius?municipalityId=&radiusKm=&uf=&region=` — Filtro geodésico Haversine por raio em km.
 - `GET /api/research?start=&end=` — Resumo compacto para descoberta de talentos.
 - `GET /api/history` — Histórico completo de snapshots.
@@ -70,7 +70,7 @@ npm test
 ## Documentação por Fase
 
 - [Fase 1 — Fundação e Rankings](docs/fase-1-radar.md)
-- [Fase 2 — Mapa e Sincronização Geográfica IBGE](docs/fase-2-geografia.md)
+- [Fase 2 — Mapa e Sincronização Geográfica](docs/fase-2-geografia.md)
 - [Fase 3 — Radar de Tendências de Eventos](docs/fase-3-eventos.md)
 - [Fase 4 — Integrações de Audiência Regional](docs/fase-4-audiencia.md)
 - [Fase 5 — Radar de Oportunidades](docs/fase-5-oportunidades.md) (inclui CLI `npm run events:coverage -- cobertura.json`)

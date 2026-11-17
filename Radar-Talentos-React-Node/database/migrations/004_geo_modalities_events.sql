@@ -1,4 +1,4 @@
--- Fase 1, 2 e 3: Base geografica nacional (IBGE), Modalidades e Submodalidades de Eventos,
+-- Fase 1, 2 e 3: Base geografica nacional, Modalidades e Submodalidades de Eventos,
 -- Snapshots de Audiencia Regional, 10 Plataformas de Ingressos, Eventos Canonicos e Anuncios.
 
 CREATE TABLE geo_regions (
@@ -15,14 +15,14 @@ INSERT INTO geo_regions(code, name) VALUES
 
 CREATE TABLE geo_states (
   uf TEXT PRIMARY KEY NOT NULL CHECK(length(uf) = 2),
-  ibge_code INTEGER NOT NULL UNIQUE,
+  state_code INTEGER NOT NULL UNIQUE,
   name TEXT NOT NULL UNIQUE,
   region_code TEXT NOT NULL REFERENCES geo_regions(code),
   latitude REAL NOT NULL CHECK(latitude BETWEEN -35.0 AND 6.0),
   longitude REAL NOT NULL CHECK(longitude BETWEEN -75.0 AND -28.0)
 ) STRICT;
 
-INSERT INTO geo_states(uf, ibge_code, name, region_code, latitude, longitude) VALUES
+INSERT INTO geo_states(uf, state_code, name, region_code, latitude, longitude) VALUES
   ('AC', 12, 'Acre', 'N', -9.9754, -67.8249),
   ('AL', 27, 'Alagoas', 'NE', -9.6498, -35.7089),
   ('AM', 13, 'Amazonas', 'N', -3.1190, -60.0217),
@@ -52,20 +52,20 @@ INSERT INTO geo_states(uf, ibge_code, name, region_code, latitude, longitude) VA
   ('TO', 17, 'Tocantins', 'N', -10.1753, -48.2982);
 
 CREATE TABLE geo_municipalities (
-  ibge_code TEXT PRIMARY KEY NOT NULL CHECK(ibge_code GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+  municipality_code TEXT PRIMARY KEY NOT NULL CHECK(municipality_code GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
   name TEXT NOT NULL CHECK(length(trim(name)) > 0),
   uf TEXT NOT NULL REFERENCES geo_states(uf),
   latitude REAL NOT NULL CHECK(latitude BETWEEN -35.0 AND 6.0),
   longitude REAL NOT NULL CHECK(longitude BETWEEN -75.0 AND -28.0),
   population INTEGER CHECK(population IS NULL OR population >= 0),
   gdp_per_capita REAL CHECK(gdp_per_capita IS NULL OR gdp_per_capita >= 0),
-  source_version TEXT NOT NULL DEFAULT 'IBGE Censo 2022'
+  source_version TEXT NOT NULL DEFAULT 'Censo 2022'
 ) STRICT;
 
 CREATE INDEX idx_geo_municipalities_uf ON geo_municipalities(uf);
 CREATE INDEX idx_geo_municipalities_name ON geo_municipalities(name);
 
-INSERT INTO geo_municipalities(ibge_code, name, uf, latitude, longitude, population, gdp_per_capita) VALUES
+INSERT INTO geo_municipalities(municipality_code, name, uf, latitude, longitude, population, gdp_per_capita) VALUES
   -- Sul (PR, SC, RS) + eixo Curitiba para filtro por raio em km
   ('4106902', 'Curitiba', 'PR', -25.4284, -49.2733, 1773718, 67691.30),
   ('4125506', 'São José dos Pinhais', 'PR', -25.5304, -49.2083, 329628, 84512.00),
@@ -128,7 +128,7 @@ INSERT INTO geo_municipalities(ibge_code, name, uf, latitude, longitude, populat
   ('1200401', 'Rio Branco', 'AC', -9.9754, -67.8249, 364756, 29400.00),
   ('1600303', 'Macapá', 'AP', 0.0349, -51.0694, 442933, 27100.00),
   ('1400100', 'Boa Vista', 'RR', 2.8235, -60.6758, 413486, 33600.00),
-  -- Homonimos para validar desambiguacao por UF e codigo IBGE (Secao 17)
+  -- Homonimos para validar desambiguacao por UF e codigo municipal (Secao 17)
   ('2201903', 'Bom Jesus', 'PI', -9.0714, -44.3590, 28796, 38100.00),
   ('2401701', 'Bom Jesus', 'RN', -5.9864, -35.5792, 9952, 14200.00),
   ('4302303', 'Bom Jesus', 'RS', -28.6686, -50.4167, 11202, 41500.00);
@@ -256,7 +256,7 @@ CREATE TABLE audience_geo_snapshots (
   unit TEXT NOT NULL CHECK(length(trim(unit)) > 0),
   granularity TEXT NOT NULL CHECK(granularity IN ('country','region','state','municipality')),
   territory_key TEXT NOT NULL CHECK(length(trim(territory_key)) > 0),
-  ibge_code TEXT REFERENCES geo_municipalities(ibge_code),
+  municipality_code TEXT REFERENCES geo_municipalities(municipality_code),
   period_start TEXT NOT NULL CHECK(period_start GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(period_start,'+0 days') = period_start),
   period_end TEXT NOT NULL CHECK(period_end GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]' AND date(period_end,'+0 days') = period_end AND period_start <= period_end),
   value INTEGER NOT NULL CHECK(value >= 0),
@@ -266,11 +266,11 @@ CREATE TABLE audience_geo_snapshots (
   report_reference TEXT,
   collected_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now')),
   UNIQUE(talent_id, platform, metric, granularity, territory_key, period_start, period_end, source),
-  CHECK(granularity != 'municipality' OR ibge_code IS NOT NULL)
+  CHECK(granularity != 'municipality' OR municipality_code IS NOT NULL)
 ) STRICT;
 
 CREATE INDEX idx_audience_geo_talent ON audience_geo_snapshots(talent_id, platform, metric);
-CREATE INDEX idx_audience_geo_ibge ON audience_geo_snapshots(ibge_code);
+CREATE INDEX idx_audience_geo_muni ON audience_geo_snapshots(municipality_code);
 
 -- 10 Plataformas de Ingressos (Secao 9)
 CREATE TABLE event_sources (
@@ -307,7 +307,7 @@ CREATE TABLE commercial_events (
   talent_id TEXT REFERENCES talents(id) ON DELETE SET NULL,
   producer_name TEXT,
   venue_name TEXT,
-  ibge_code TEXT REFERENCES geo_municipalities(ibge_code),
+  municipality_code TEXT REFERENCES geo_municipalities(municipality_code),
   uf TEXT REFERENCES geo_states(uf),
   region_code TEXT REFERENCES geo_regions(code),
   latitude REAL,
@@ -334,7 +334,7 @@ CREATE TABLE commercial_events (
 ) STRICT;
 
 CREATE INDEX idx_commercial_events_modality ON commercial_events(primary_modality_id, primary_submodality_id);
-CREATE INDEX idx_commercial_events_ibge ON commercial_events(ibge_code);
+CREATE INDEX idx_commercial_events_muni ON commercial_events(municipality_code);
 CREATE INDEX idx_commercial_events_dates ON commercial_events(event_date_start, first_detected_at);
 
 CREATE TABLE commercial_event_listings (

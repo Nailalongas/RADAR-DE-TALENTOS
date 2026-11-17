@@ -19,7 +19,7 @@ test('cálculo geodésico Haversine valida coordenadas, raio zero, fronteiras e 
   try {
     const base = `http://127.0.0.1:${server.address().port}`;
 
-    // Homônimos desambiguados por UF e código IBGE
+    // Homônimos desambiguados por UF e código municipal
     const homonymsRes = await fetch(
       `${base}/api/geo/municipalities?search=Bom%20Jesus`
     );
@@ -38,7 +38,7 @@ test('cálculo geodésico Haversine valida coordenadas, raio zero, fronteiras e 
       )
     ).json();
     assert.equal(r0.municipalities.length, 1);
-    assert.equal(r0.municipalities[0].ibge_code, '4106902');
+    assert.equal(r0.municipalities[0].municipality_code, '4106902');
     assert.equal(r0.municipalities[0].distanceKm, 0);
 
     // Raio 150 km de Curitiba inclui Joinville (SC), Ponta Grossa (PR), Paranaguá (PR), São José dos Pinhais (PR)
@@ -101,7 +101,7 @@ test('importação de audiência regional, idempotência, separação de métric
           metric: 'visualizacoes',
           unit: 'visualizacoes',
           granularity: 'municipality',
-          ibgeCode: '4106902',
+          municipalityCode: '4106902',
           periodStart: '2026-10-01',
           periodEnd: '2026-10-31',
           value: 85000,
@@ -115,7 +115,7 @@ test('importação de audiência regional, idempotência, separação de métric
           metric: 'visualizacoes',
           unit: 'visualizacoes',
           granularity: 'municipality',
-          ibgeCode: '4209102',
+          municipalityCode: '4209102',
           periodStart: '2026-10-01',
           periodEnd: '2026-10-31',
           value: 32000,
@@ -129,7 +129,7 @@ test('importação de audiência regional, idempotência, separação de métric
           metric: 'seguidores',
           unit: 'seguidores',
           granularity: 'municipality',
-          ibgeCode: '4106902',
+          municipalityCode: '4106902',
           periodStart: '2026-10-01',
           periodEnd: '2026-10-31',
           value: 62000,
@@ -144,7 +144,7 @@ test('importação de audiência regional, idempotência, separação de métric
           metric: 'visualizacoes',
           unit: 'visualizacoes',
           granularity: 'municipality',
-          ibgeCode: '4118204',
+          municipalityCode: '4118204',
           periodStart: '2026-10-01',
           periodEnd: '2026-10-31',
           value: 0,
@@ -189,11 +189,11 @@ test('importação de audiência regional, idempotência, separação de métric
     ).json();
     assert.equal(ytMap.items.length, 3);
     assert.equal(
-      ytMap.items.find(i => i.ibgeCode === '4106902').value,
+      ytMap.items.find(i => i.municipalityCode === '4106902').value,
       85000
     );
     assert.equal(
-      ytMap.items.find(i => i.ibgeCode === '4118204').value,
+      ytMap.items.find(i => i.municipalityCode === '4118204').value,
       0,
       'Zero real permanece zero'
     );
@@ -223,7 +223,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
             talentName: 'Natiruts',
             platform: 'YouTube',
             metric: 'visualizacoes',
-            ibgeCode: '4106902',
+            municipalityCode: '4106902',
             periodStart: '2026-10-01',
             periodEnd: '2026-10-31',
             value: 100000,
@@ -233,7 +233,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
             talentName: 'Natiruts',
             platform: 'YouTube',
             metric: 'visualizacoes',
-            ibgeCode: '4209102',
+            municipalityCode: '4209102',
             periodStart: '2026-10-01',
             periodEnd: '2026-10-31',
             value: 10000,
@@ -258,7 +258,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
           originalCategory: 'Show',
           attractionName: 'Natiruts',
           venueName: 'Pedreira Paulo Leminski',
-          ibgeCode: '4106902',
+          municipalityCode: '4106902',
           eventDateStart: '2026-11-28',
           publishedAt: '2026-10-05',
           detectedAt: '2026-11-01',
@@ -271,7 +271,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
           originalCategory: 'Shows e Música',
           attractionName: 'Natiruts',
           venueName: 'Pedreira Paulo Leminski',
-          ibgeCode: '4106902',
+          municipalityCode: '4106902',
           eventDateStart: '2026-11-28',
           publishedAt: '2026-10-06',
           detectedAt: '2026-11-02',
@@ -284,7 +284,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
           originalCategory: 'Shows',
           attractionName: 'Natiruts',
           venueName: 'Allianz Parque',
-          ibgeCode: '3550308',
+          municipalityCode: '3550308',
           eventDateStart: '2026-12-12',
           publishedAt: '2026-09-10',
           detectedAt: '2026-11-01',
@@ -297,7 +297,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
           originalCategory: 'Corrida',
           attractionName: 'Meia Maratona',
           venueName: 'Centro de Joinville',
-          ibgeCode: '4209102',
+          municipalityCode: '4209102',
           eventDateStart: '2026-11-20',
           publishedAt: '2026-08-01',
           detectedAt: '2026-10-01',
@@ -350,7 +350,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
     ).json();
     assert.equal(curitibaRadiusTrends.summary.uniqueEvents, 2);
     const cwbShow = curitibaRadiusTrends.events.find(
-      e => e.ibge_code === '4106902'
+      e => e.municipality_code === '4106902'
     );
     assert.equal(cwbShow.listings.length, 2);
 
@@ -376,7 +376,7 @@ test('deduplicação de eventos entre plataformas, modalidades, inventário inic
       )
     ).json();
     assert.equal(opp.evaluatedCount, 2); // Curitiba e Joinville têm audiência e cobertura
-    const pgItem = opp.items.find(i => i.ibgeCode === '4119905'); // Ponta Grossa não tem relatório de audiência
+    const pgItem = opp.items.find(i => i.municipalityCode === '4119905'); // Ponta Grossa não tem relatório de audiência
     assert.equal(pgItem.quadrant, 'insufficient_coverage');
   } finally {
     await new Promise(resolve => server.close(resolve));

@@ -43,12 +43,12 @@ export function queryGeoStates(db, { region = '' } = {}) {
     region && region !== 'all'
       ? db
           .prepare(
-            'SELECT uf, ibge_code, name, region_code, latitude, longitude FROM geo_states WHERE region_code = ? ORDER BY uf'
+            'SELECT uf, state_code, name, region_code, latitude, longitude FROM geo_states WHERE region_code = ? ORDER BY uf'
           )
           .all(region)
       : db
           .prepare(
-            'SELECT uf, ibge_code, name, region_code, latitude, longitude FROM geo_states ORDER BY uf'
+            'SELECT uf, state_code, name, region_code, latitude, longitude FROM geo_states ORDER BY uf'
           )
           .all();
   return { states: rows };
@@ -69,12 +69,12 @@ export function queryGeoMunicipalities(
       center: null,
       radiusKm: null,
       municipalities: [],
-      sourceVersion: 'IBGE Censo 2022',
+      sourceVersion: 'Censo 2022',
     };
   }
   const all = db
     .prepare(
-      `SELECT m.ibge_code, m.name, m.uf, s.region_code, m.latitude, m.longitude,
+      `SELECT m.municipality_code, m.name, m.uf, s.region_code, m.latitude, m.longitude,
               m.population, m.gdp_per_capita, m.source_version
        FROM geo_municipalities m
        JOIN geo_states s ON s.uf = m.uf
@@ -93,7 +93,7 @@ export function queryGeoMunicipalities(
   return {
     ...filtered,
     totalInBase: all.length,
-    sourceVersion: all[0]?.source_version || 'IBGE Censo 2022',
+    sourceVersion: all[0]?.source_version || 'Censo 2022',
   };
 }
 
@@ -146,9 +146,10 @@ export function importRegionalAudience(db, { rows = [] } = {}) {
         .trim()
         .toLowerCase();
       const granularity = String(r.granularity || 'municipality').trim();
-      const ibgeCode = r.ibgeCode || r.ibge ? String(r.ibgeCode || r.ibge).trim() : null;
+      const rawCityCode = r.municipalityCode || r.cityCode || r.code || r.codigo;
+      const municipalityCode = rawCityCode ? String(rawCityCode).trim() : null;
       const territoryKey = String(
-        r.territoryKey || (granularity === 'municipality' ? ibgeCode : r.uf || 'BR') || ''
+        r.territoryKey || (granularity === 'municipality' ? municipalityCode : r.uf || 'BR') || ''
       ).trim();
       const periodStart = String(r.periodStart || r.inicio || '').trim();
       const periodEnd = String(r.periodEnd || r.fim || '').trim();
@@ -163,7 +164,7 @@ export function importRegionalAudience(db, { rows = [] } = {}) {
         !allowedMetrics[platform] ||
         !allowedMetrics[platform].includes(metric) ||
         !['country', 'region', 'state', 'municipality'].includes(granularity) ||
-        (granularity === 'municipality' && !/^\d{7}$/.test(ibgeCode || '')) ||
+        (granularity === 'municipality' && !/^\d{7}$/.test(municipalityCode || '')) ||
         !isValidIsoDate(periodStart) ||
         !isValidIsoDate(periodEnd) ||
         periodStart > periodEnd ||
@@ -175,19 +176,19 @@ export function importRegionalAudience(db, { rows = [] } = {}) {
         rejected.push({
           line: lineNum,
           reason:
-            'Campos inválidos (verifique plataforma, métrica, código IBGE de 7 dígitos, datas YYYY-MM-DD, valor inteiro >= 0 e fonte).',
+            'Campos inválidos (verifique plataforma, métrica, código municipal de 7 dígitos, datas YYYY-MM-DD, valor inteiro >= 0 e fonte).',
         });
         continue;
       }
 
       if (granularity === 'municipality') {
         const cityExists = db
-          .prepare('SELECT 1 FROM geo_municipalities WHERE ibge_code = ?')
-          .get(ibgeCode);
+          .prepare('SELECT 1 FROM geo_municipalities WHERE municipality_code = ?')
+          .get(municipalityCode);
         if (!cityExists) {
           rejected.push({
             line: lineNum,
-            reason: `Código IBGE não encontrado na base nacional: ${ibgeCode}`,
+            reason: `Código municipal não encontrado na base nacional: ${municipalityCode}`,
           });
           continue;
         }
@@ -260,7 +261,7 @@ export function importRegionalAudience(db, { rows = [] } = {}) {
       } else {
         db.prepare(
           `INSERT INTO audience_geo_snapshots(
-             talent_id, platform, metric, unit, granularity, territory_key, ibge_code,
+             talent_id, platform, metric, unit, granularity, territory_key, municipality_code,
              period_start, period_end, value, provenance, confidence, source, report_reference
            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         ).run(
@@ -270,7 +271,7 @@ export function importRegionalAudience(db, { rows = [] } = {}) {
           unit,
           granularity,
           territoryKey,
-          ibgeCode,
+          municipalityCode,
           periodStart,
           periodEnd,
           value,
@@ -328,8 +329,8 @@ export function queryAudienceMapAndDistribution(
     centerMunicipalityId,
     radiusKm,
   });
-  const allowedIbge = new Map(
-    geoFilter.municipalities.map(m => [m.ibge_code, m])
+  const allowedCities = new Map(
+    geoFilter.municipalities.map(m => [m.municipality_code, m])
   );
 
   let sql = `
@@ -367,13 +368,13 @@ export function queryAudienceMapAndDistribution(
 
   const nationalOnlyRows = rawRows.filter(r => r.granularity === 'country');
   const muniRows = rawRows.filter(
-    r => r.granularity === 'municipality' && allowedIbge.has(r.ibge_code)
+    r => r.granularity === 'municipality' && allowedCities.has(r.municipality_code)
   );
 
-  // Deduplicate latest period per (talent_id, platform, metric, ibge_code)
+  // Deduplicate latest period per (talent_id, platform, metric, municipality_code)
   const latestByCell = new Map();
   for (const row of muniRows) {
-    const key = `${row.talent_id}|${row.platform}|${row.metric}|${row.ibge_code}`;
+    const key = `${row.talent_id}|${row.platform}|${row.metric}|${row.municipality_code}`;
     const prev = latestByCell.get(key);
     if (!prev || row.period_end > prev.period_end) {
       latestByCell.set(key, row);
@@ -385,11 +386,11 @@ export function queryAudienceMapAndDistribution(
   // Group by municipality AND platform/metric so we never sum incompatible metrics!
   const byMunicipality = new Map();
   for (const row of dedupedRows) {
-    const city = allowedIbge.get(row.ibge_code);
+    const city = allowedCities.get(row.municipality_code);
     if (!city) continue;
-    const key = `${row.ibge_code}|${row.platform}|${row.metric}`;
+    const key = `${row.municipality_code}|${row.platform}|${row.metric}`;
     const entry = byMunicipality.get(key) || {
-      ibgeCode: row.ibge_code,
+      municipalityCode: row.municipality_code,
       cityName: city.name,
       uf: city.uf,
       regionCode: city.region_code,
@@ -554,8 +555,8 @@ export function importEventsBatch(
       const producerName = String(r.producerName || r.produtor || '').trim();
       const venueName = String(r.venueName || r.local || '').trim();
       const deliveryMode = String(r.deliveryMode || 'presencial').trim();
-      const ibgeCode =
-        r.ibgeCode || r.ibge ? String(r.ibgeCode || r.ibge).trim() : null;
+      const rawCityCode = r.municipalityCode || r.cityCode || r.code || r.codigo;
+      const municipalityCode = rawCityCode ? String(rawCityCode).trim() : null;
       const eventDateStart = String(r.eventDateStart || r.dataEvento || '').trim();
       const eventDateEnd = r.eventDateEnd ? String(r.eventDateEnd).trim() : null;
       const publishedAt = r.publishedAt ? String(r.publishedAt).trim() : null;
@@ -595,16 +596,16 @@ export function importEventsBatch(
       }
 
       let cityRow = null;
-      if (ibgeCode) {
+      if (municipalityCode) {
         cityRow = db
           .prepare(
-            'SELECT m.ibge_code, m.uf, s.region_code, m.latitude, m.longitude FROM geo_municipalities m JOIN geo_states s ON s.uf = m.uf WHERE m.ibge_code = ?'
+            'SELECT m.municipality_code, m.uf, s.region_code, m.latitude, m.longitude FROM geo_municipalities m JOIN geo_states s ON s.uf = m.uf WHERE m.municipality_code = ?'
           )
-          .get(ibgeCode);
+          .get(municipalityCode);
         if (!cityRow) {
           rejected.push({
             line: lineNum,
-            reason: `Município IBGE não encontrado: ${ibgeCode}`,
+            reason: `Município não encontrado: ${municipalityCode}`,
           });
           continue;
         }
@@ -622,7 +623,7 @@ export function importEventsBatch(
         title,
         attractionName,
         venueName,
-        ibgeCode: cityRow?.ibge_code || '',
+        municipalityCode: cityRow?.municipality_code || '',
         eventDateStart,
         deliveryMode,
       });
@@ -675,7 +676,7 @@ export function importEventsBatch(
         db.prepare(
           `INSERT INTO commercial_events(
              id, canonical_key, title, normalized_title, attraction_name, producer_name, venue_name,
-             ibge_code, uf, region_code, latitude, longitude,
+             municipality_code, uf, region_code, latitude, longitude,
              primary_modality_id, primary_submodality_id, classification_confidence, needs_review,
              delivery_mode, is_free, price_min, price_max,
              event_date_start, event_date_end, first_published_at, first_detected_at, last_detected_at,
@@ -689,7 +690,7 @@ export function importEventsBatch(
           attractionName || null,
           producerName || null,
           venueName || null,
-          cityRow?.ibge_code || null,
+          cityRow?.municipality_code || null,
           cityRow?.uf || null,
           cityRow?.region_code || null,
           cityRow?.latitude ?? null,
@@ -796,8 +797,8 @@ export function queryEventTrendsAndRankings(
     centerMunicipalityId,
     radiusKm,
   });
-  const allowedIbge = new Map(
-    geoFilter.municipalities.map(m => [m.ibge_code, m])
+  const allowedCities = new Map(
+    geoFilter.municipalities.map(m => [m.municipality_code, m])
   );
   const hasGeoConstraint = Boolean(
     (region && region !== 'all') ||
@@ -812,7 +813,7 @@ export function queryEventTrendsAndRankings(
        FROM commercial_events e
        JOIN event_modalities m ON m.id = e.primary_modality_id
        LEFT JOIN event_submodalities sm ON sm.id = e.primary_submodality_id
-       LEFT JOIN geo_municipalities gm ON gm.ibge_code = e.ibge_code
+       LEFT JOIN geo_municipalities gm ON gm.municipality_code = e.municipality_code
        WHERE e.provenance != 'demonstracao'
        ORDER BY e.event_date_start ASC, e.title ASC`
     )
@@ -850,8 +851,8 @@ export function queryEventTrendsAndRankings(
 
     // Online events without physical location do not enter radius/geo filter (Section 9)
     if (hasGeoConstraint) {
-      if (ev.delivery_mode === 'online' || !ev.ibge_code) continue;
-      if (!allowedIbge.has(ev.ibge_code)) continue;
+      if (ev.delivery_mode === 'online' || !ev.municipality_code) continue;
+      if (!allowedCities.has(ev.municipality_code)) continue;
     }
 
     const evListings = listingsByEvent.get(ev.id) || [];
@@ -871,7 +872,7 @@ export function queryEventTrendsAndRankings(
     if (dateFrom && effectiveDate < dateFrom) continue;
     if (dateTo && effectiveDate > dateTo) continue;
 
-    const cityInfo = ev.ibge_code ? allowedIbge.get(ev.ibge_code) : null;
+    const cityInfo = ev.municipality_code ? allowedCities.get(ev.municipality_code) : null;
     filteredEvents.push({
       ...ev,
       distanceKm: cityInfo?.distanceKm ?? null,
@@ -920,9 +921,9 @@ export function queryEventTrendsAndRankings(
       submodalityCounts.set(ev.primary_submodality_id, sEntry);
     }
 
-    if (ev.ibge_code) {
-      const cEntry = cityCounts.get(ev.ibge_code) || {
-        ibgeCode: ev.ibge_code,
+    if (ev.municipality_code) {
+      const cEntry = cityCounts.get(ev.municipality_code) || {
+        municipalityCode: ev.municipality_code,
         cityName: ev.city_name,
         uf: ev.uf,
         population: ev.city_population,
@@ -930,7 +931,7 @@ export function queryEventTrendsAndRankings(
         uniqueEvents: 0,
       };
       cEntry.uniqueEvents++;
-      cityCounts.set(ev.ibge_code, cEntry);
+      cityCounts.set(ev.municipality_code, cEntry);
     }
 
     // Count each unique event once per platform it appears on (Section 9)
@@ -1074,31 +1075,31 @@ export function queryOpportunities(
     radiusKm,
   });
 
-  const audienceByIbge = new Map();
+  const audienceByCity = new Map();
   for (const item of audienceReport.items) {
-    audienceByIbge.set(item.ibgeCode, {
+    audienceByCity.set(item.municipalityCode, {
       value: item.value,
       source: item.source,
       provenance: item.provenance,
     });
   }
 
-  const eventsByIbge = new Map();
+  const eventsByCity = new Map();
   for (const c of eventsReport.byCity) {
-    eventsByIbge.set(c.ibgeCode, { count: c.uniqueEvents });
+    eventsByCity.set(c.municipalityCode, { count: c.uniqueEvents });
   }
   // If events have been imported in the database, cities in the geo filter with 0 events have 0 observed offer ONLY if that state/region has active event monitoring
   const monitoredUfs = new Set(eventsReport.byCity.map(c => c.uf));
   for (const m of geoFilter.municipalities) {
-    if (monitoredUfs.has(m.uf) && !eventsByIbge.has(m.ibge_code)) {
-      eventsByIbge.set(m.ibge_code, { count: 0 });
+    if (monitoredUfs.has(m.uf) && !eventsByCity.has(m.municipality_code)) {
+      eventsByCity.set(m.municipality_code, { count: 0 });
     }
   }
 
   return computeOpportunitiesMatrix({
     municipalities: geoFilter.municipalities,
-    audienceByIbge,
-    eventsByIbge,
+    audienceByCity,
+    eventsByCity,
   });
 }
 

@@ -75,11 +75,11 @@ export function seedPilotDatabaseIfEmpty(db) {
   }
 
   const municipiosPath = new URL(
-    '../../src/domain/ibge-municipios-data.json',
+    '../../src/domain/municipios-data.json',
     import.meta.url
   );
   const malhaPath = new URL(
-    '../../src/domain/ibge-uf-malha.json',
+    '../../src/domain/uf-malha.json',
     import.meta.url
   );
 
@@ -114,8 +114,8 @@ export function seedPilotDatabaseIfEmpty(db) {
 
     const insertGeoMuni = db.prepare(
       `INSERT OR IGNORE INTO geo_municipalities(
-         ibge_code, name, uf, latitude, longitude, source_version
-       ) VALUES (?, ?, ?, ?, ?, 'IBGE Localidades 2025')`
+         municipality_code, name, uf, latitude, longitude, source_version
+       ) VALUES (?, ?, ?, ?, ?, 'Localidades 2025')`
     );
 
     for (const [code, name, uf, lat, lon] of rawMunicipios) {
@@ -128,9 +128,9 @@ export function seedPilotDatabaseIfEmpty(db) {
         region,
         lat,
         lon,
-        'IBGE Localidades',
+        'Base Nacional de Localidades',
         'Localidades: 2026-11-17; malhas: 2025',
-        'IBGE — Coordenadas Geográficas Municipais (WGS84)',
+        'Coordenadas Geográficas Municipais (WGS84)',
         '2025'
       );
       if (
@@ -156,7 +156,7 @@ export function seedPilotDatabaseIfEmpty(db) {
       'states',
       JSON.stringify(rawStates),
       'Localidades: 2026-11-17; malhas: 2025',
-      'IBGE Malhas'
+      'Malha Territorial'
     );
 
     // Seed pilot talents, categories, modalities, social accounts and snapshots
@@ -733,7 +733,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         talentName: 'Natiruts',
         platform: 'YouTube',
         metric: 'visualizacoes',
-        ibgeCode: '4106902',
+        municipalityCode: '4106902',
         periodStart: '2026-10-18',
         periodEnd: '2026-11-17',
         value: 142000,
@@ -745,7 +745,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         talentName: 'Natiruts',
         platform: 'YouTube',
         metric: 'visualizacoes',
-        ibgeCode: '4209102',
+        municipalityCode: '4209102',
         periodStart: '2026-10-18',
         periodEnd: '2026-11-17',
         value: 62300,
@@ -757,7 +757,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         talentName: 'Natiruts',
         platform: 'YouTube',
         metric: 'visualizacoes',
-        ibgeCode: '4119905',
+        municipalityCode: '4119905',
         periodStart: '2026-10-18',
         periodEnd: '2026-11-17',
         value: 48500,
@@ -769,7 +769,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         talentName: 'Natiruts',
         platform: 'YouTube',
         metric: 'visualizacoes',
-        ibgeCode: '4205407',
+        municipalityCode: '4205407',
         periodStart: '2026-10-18',
         periodEnd: '2026-11-17',
         value: 71500,
@@ -781,7 +781,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         talentName: 'Natiruts',
         platform: 'YouTube',
         metric: 'visualizacoes',
-        ibgeCode: '4314902',
+        municipalityCode: '4314902',
         periodStart: '2026-10-18',
         periodEnd: '2026-11-17',
         value: 118000,
@@ -801,7 +801,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         originalCategory: 'Show',
         attractionName: 'Natiruts',
         venueName: 'Pedreira Paulo Leminski',
-        ibgeCode: '4106902',
+        municipalityCode: '4106902',
         eventDateStart: '2026-11-28',
         publishedAt: todayStr,
         detectedAt: todayStr,
@@ -814,7 +814,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         originalCategory: 'Shows e Música',
         attractionName: 'Natiruts',
         venueName: 'Pedreira Paulo Leminski',
-        ibgeCode: '4106902',
+        municipalityCode: '4106902',
         eventDateStart: '2026-11-28',
         publishedAt: todayStr,
         detectedAt: todayStr,
@@ -827,7 +827,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         originalCategory: 'Corrida',
         attractionName: 'Meia Maratona',
         venueName: 'Centreventos Cau Hansen',
-        ibgeCode: '4209102',
+        municipalityCode: '4209102',
         eventDateStart: '2026-12-06',
         publishedAt: todayStr,
         detectedAt: todayStr,

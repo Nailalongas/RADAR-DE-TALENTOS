@@ -178,7 +178,7 @@ a.network-pill:hover{text-decoration:underline}
   .talent-avatar{display:none}
 }
 
-/* Fase 1, 2 e 3: Radar Geografico, Mapa SVG IBGE e Tendencias de Eventos */
+/* Fase 1, 2 e 3: Radar Geografico, Mapa SVG e Tendencias de Eventos */
 section.radar, main > section:not(#researchView):not(#growthView):not(#savedView):not(#archivesView) {
   background: white;
   margin-top: 20px;

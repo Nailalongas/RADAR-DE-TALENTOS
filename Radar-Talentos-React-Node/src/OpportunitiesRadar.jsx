@@ -111,7 +111,7 @@ export default function OpportunitiesRadar() {
         <div>
           <h2>Radar de Oportunidades — Inteligência Comercial Integrada (Fase 5)</h2>
           <p>
-            Cruzamento entre audiência municipal verificada (Fase 4), malha geográfica IBGE (Fase 2) e oferta observada nas 10 plataformas de ingressos (Fase 3).
+            Cruzamento entre audiência municipal verificada (Fase 4), malha geográfica (Fase 2) e oferta observada nas 10 plataformas de ingressos (Fase 3).
           </p>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -207,7 +207,7 @@ export default function OpportunitiesRadar() {
             </select>
           </label>
           <label>
-            Centro do raio (código IBGE)
+            Centro do raio (código municipal)
             <input
               value={f.center}
               placeholder="Ex.: 4106902 (Curitiba)"

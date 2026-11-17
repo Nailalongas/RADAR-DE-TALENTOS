@@ -17,7 +17,7 @@ import {
 } from '../services/api.js';
 
 const SAMPLE_EVENTS_CSV = [
-  'sourceId;externalId;url;title;originalCategory;attractionName;venueName;ibgeCode;eventDateStart;publishedAt;detectedAt;priceMin;priceMax;status',
+  'sourceId;externalId;url;title;originalCategory;attractionName;venueName;municipalityCode;eventDateStart;publishedAt;detectedAt;priceMin;priceMax;status',
   'diskingressos;dsk-101;https://www.diskingressos.com.br/evento/101;Natiruts Turnê Leve com Você;Show Nacional;Natiruts;Pedreira Paulo Leminski;4106902;2026-11-28;2026-10-05;2026-11-01;140;380;published',
   'eventim;evt-901;https://www.eventim.com.br/event/natiruts-101;Turnê Natiruts Leve com Você;Shows;Natiruts;Pedreira Paulo Leminski;4106902;2026-11-28;2026-10-05;2026-11-02;140;380;published',
   'diskingressos;dsk-102;https://www.diskingressos.com.br/evento/102;Noite de Stand-up Comedy Curitiba;Humor;Afonso Padilha;Teatro Positivo;4106902;2026-12-05;2026-10-20;2026-11-05;70;140;published',
@@ -306,7 +306,7 @@ export default function EventTrendsAndOpportunities() {
                 onChange={e => setCenterMunicipalityId(e.target.value)}
               >
                 {municipalities.map(m => (
-                  <option key={m.ibge_code} value={m.ibge_code}>
+                  <option key={m.municipality_code} value={m.municipality_code}>
                     {m.name} ({m.uf})
                   </option>
                 ))}
@@ -468,7 +468,7 @@ export default function EventTrendsAndOpportunities() {
               </thead>
               <tbody>
                 {trends.byCity.map(c => (
-                  <tr key={c.ibgeCode}>
+                  <tr key={c.municipalityCode}>
                     <td>
                       <b>
                         {c.cityName} ({c.uf})
@@ -590,13 +590,13 @@ export default function EventTrendsAndOpportunities() {
             </thead>
             <tbody>
               {(opportunities.items || []).slice(0, 15).map(item => (
-                <tr key={item.ibgeCode}>
+                <tr key={item.municipalityCode}>
                   <td>
                     <b>
                       {item.cityName} ({item.uf})
                     </b>
                     <br />
-                    <small>IBGE {item.ibgeCode}</small>
+                    <small>Código {item.municipalityCode}</small>
                   </td>
                   <td>
                     {item.distanceKm != null ? `${item.distanceKm} km` : '—'}

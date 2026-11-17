@@ -1,5 +1,5 @@
 import { normalizeName } from './research.js';
-import ibgeCompactRows from './ibge-municipios-data.json' with { type: 'json' };
+import muniCompactRows from './municipios-data.json' with { type: 'json' };
 
 export const EARTH_RADIUS_KM = 6371;
 
@@ -22,78 +22,78 @@ export const UF_TO_REGION = Object.fromEntries(
 );
 
 export const DEFAULT_MUNICIPALITIES = [
-  { ibge_code: '4106902', name: 'Curitiba', uf: 'PR', region_code: 'S', latitude: -25.4284, longitude: -49.2733, population: 1773718, gdp_per_capita: 67691.3 },
-  { ibge_code: '4125506', name: 'São José dos Pinhais', uf: 'PR', region_code: 'S', latitude: -25.5304, longitude: -49.2083, population: 329628, gdp_per_capita: 84512.0 },
-  { ibge_code: '4105805', name: 'Colombo', uf: 'PR', region_code: 'S', latitude: -25.2925, longitude: -49.2262, population: 232212, gdp_per_capita: 29450.0 },
-  { ibge_code: '4119152', name: 'Pinhais', uf: 'PR', region_code: 'S', latitude: -25.4429, longitude: -49.1927, population: 127019, gdp_per_capita: 64210.0 },
-  { ibge_code: '4101804', name: 'Araucária', uf: 'PR', region_code: 'S', latitude: -25.5859, longitude: -49.4047, population: 151666, gdp_per_capita: 171200.0 },
-  { ibge_code: '4104204', name: 'Campo Largo', uf: 'PR', region_code: 'S', latitude: -25.4595, longitude: -49.529, population: 136327, gdp_per_capita: 45120.0 },
-  { ibge_code: '4118204', name: 'Paranaguá', uf: 'PR', region_code: 'S', latitude: -25.5205, longitude: -48.5095, population: 145829, gdp_per_capita: 89300.0 },
-  { ibge_code: '4119905', name: 'Ponta Grossa', uf: 'PR', region_code: 'S', latitude: -25.0945, longitude: -50.1633, population: 358371, gdp_per_capita: 56890.0 },
-  { ibge_code: '4113700', name: 'Londrina', uf: 'PR', region_code: 'S', latitude: -23.3103, longitude: -51.1628, population: 555965, gdp_per_capita: 44120.0 },
-  { ibge_code: '4115200', name: 'Maringá', uf: 'PR', region_code: 'S', latitude: -23.421, longitude: -51.9331, population: 409657, gdp_per_capita: 53840.0 },
-  { ibge_code: '4104808', name: 'Cascavel', uf: 'PR', region_code: 'S', latitude: -24.9578, longitude: -53.4595, population: 348051, gdp_per_capita: 48750.0 },
-  { ibge_code: '4108304', name: 'Foz do Iguaçu', uf: 'PR', region_code: 'S', latitude: -25.5469, longitude: -54.5882, population: 285415, gdp_per_capita: 61200.0 },
-  { ibge_code: '4209102', name: 'Joinville', uf: 'SC', region_code: 'S', latitude: -26.3044, longitude: -48.8487, population: 616317, gdp_per_capita: 73450.0 },
-  { ibge_code: '4202404', name: 'Blumenau', uf: 'SC', region_code: 'S', latitude: -26.9194, longitude: -49.0661, population: 361261, gdp_per_capita: 63800.0 },
-  { ibge_code: '4208203', name: 'Itajaí', uf: 'SC', region_code: 'S', latitude: -26.9078, longitude: -48.6619, population: 264054, gdp_per_capita: 138400.0 },
-  { ibge_code: '4202008', name: 'Balneário Camboriú', uf: 'SC', region_code: 'S', latitude: -26.9906, longitude: -48.6348, population: 139155, gdp_per_capita: 52100.0 },
-  { ibge_code: '4205407', name: 'Florianópolis', uf: 'SC', region_code: 'S', latitude: -27.5954, longitude: -48.548, population: 537211, gdp_per_capita: 48900.0 },
-  { ibge_code: '4204202', name: 'Chapecó', uf: 'SC', region_code: 'S', latitude: -27.1004, longitude: -52.6152, population: 254785, gdp_per_capita: 59300.0 },
-  { ibge_code: '4204608', name: 'Criciúma', uf: 'SC', region_code: 'S', latitude: -28.6775, longitude: -49.3697, population: 214493, gdp_per_capita: 47200.0 },
-  { ibge_code: '4314902', name: 'Porto Alegre', uf: 'RS', region_code: 'S', latitude: -30.0346, longitude: -51.2177, population: 1332845, gdp_per_capita: 78586.94 },
-  { ibge_code: '4305108', name: 'Caxias do Sul', uf: 'RS', region_code: 'S', latitude: -29.1678, longitude: -51.1794, population: 463501, gdp_per_capita: 68120.0 },
-  { ibge_code: '4309308', name: 'Gramado', uf: 'RS', region_code: 'S', latitude: -29.3746, longitude: -50.8764, population: 40134, gdp_per_capita: 74500.0 },
-  { ibge_code: '4314407', name: 'Pelotas', uf: 'RS', region_code: 'S', latitude: -31.7654, longitude: -52.3376, population: 325685, gdp_per_capita: 34200.0 },
-  { ibge_code: '4316907', name: 'Santa Maria', uf: 'RS', region_code: 'S', latitude: -29.6842, longitude: -53.8069, population: 271735, gdp_per_capita: 36900.0 },
-  { ibge_code: '3550308', name: 'São Paulo', uf: 'SP', region_code: 'SE', latitude: -23.5505, longitude: -46.6333, population: 11451999, gdp_per_capita: 93156.23 },
-  { ibge_code: '3509502', name: 'Campinas', uf: 'SP', region_code: 'SE', latitude: -22.9056, longitude: -47.0608, population: 1139047, gdp_per_capita: 65400.0 },
-  { ibge_code: '3548500', name: 'Santos', uf: 'SP', region_code: 'SE', latitude: -23.9608, longitude: -46.3336, population: 418608, gdp_per_capita: 69800.0 },
-  { ibge_code: '3543402', name: 'Ribeirão Preto', uf: 'SP', region_code: 'SE', latitude: -21.1775, longitude: -47.8103, population: 698642, gdp_per_capita: 58200.0 },
-  { ibge_code: '3549904', name: 'São José dos Campos', uf: 'SP', region_code: 'SE', latitude: -23.1791, longitude: -45.8872, population: 697054, gdp_per_capita: 67300.0 },
-  { ibge_code: '3552205', name: 'Sorocaba', uf: 'SP', region_code: 'SE', latitude: -23.5015, longitude: -47.4526, population: 723682, gdp_per_capita: 62100.0 },
-  { ibge_code: '3304557', name: 'Rio de Janeiro', uf: 'RJ', region_code: 'SE', latitude: -22.9068, longitude: -43.1729, population: 6211223, gdp_per_capita: 59400.0 },
-  { ibge_code: '3303302', name: 'Niterói', uf: 'RJ', region_code: 'SE', latitude: -22.8832, longitude: -43.1034, population: 481749, gdp_per_capita: 108400.0 },
-  { ibge_code: '3106200', name: 'Belo Horizonte', uf: 'MG', region_code: 'SE', latitude: -19.9167, longitude: -43.9345, population: 2315560, gdp_per_capita: 46800.0 },
-  { ibge_code: '3170206', name: 'Uberlândia', uf: 'MG', region_code: 'SE', latitude: -18.9186, longitude: -48.2772, population: 713224, gdp_per_capita: 61900.0 },
-  { ibge_code: '3136702', name: 'Juiz de Fora', uf: 'MG', region_code: 'SE', latitude: -21.7642, longitude: -43.3503, population: 540756, gdp_per_capita: 36400.0 },
-  { ibge_code: '3205309', name: 'Vitória', uf: 'ES', region_code: 'SE', latitude: -20.3155, longitude: -40.3128, population: 322869, gdp_per_capita: 96500.0 },
-  { ibge_code: '3205200', name: 'Vila Velha', uf: 'ES', region_code: 'SE', latitude: -20.3297, longitude: -40.2925, population: 467722, gdp_per_capita: 34900.0 },
-  { ibge_code: '5300108', name: 'Brasília', uf: 'DF', region_code: 'CO', latitude: -15.7975, longitude: -47.8919, population: 2817381, gdp_per_capita: 98600.0 },
-  { ibge_code: '5208707', name: 'Goiânia', uf: 'GO', region_code: 'CO', latitude: -16.6869, longitude: -49.2648, population: 1437366, gdp_per_capita: 42900.0 },
-  { ibge_code: '5103403', name: 'Cuiabá', uf: 'MT', region_code: 'CO', latitude: -15.6014, longitude: -56.0979, population: 650877, gdp_per_capita: 49300.0 },
-  { ibge_code: '5002704', name: 'Campo Grande', uf: 'MS', region_code: 'CO', latitude: -20.4697, longitude: -54.6201, population: 898100, gdp_per_capita: 40200.0 },
-  { ibge_code: '2927408', name: 'Salvador', uf: 'BA', region_code: 'NE', latitude: -12.9777, longitude: -38.5016, population: 2417678, gdp_per_capita: 27400.0 },
-  { ibge_code: '2611606', name: 'Recife', uf: 'PE', region_code: 'NE', latitude: -8.0476, longitude: -34.877, population: 1488920, gdp_per_capita: 38900.0 },
-  { ibge_code: '2304400', name: 'Fortaleza', uf: 'CE', region_code: 'NE', latitude: -3.7319, longitude: -38.5267, population: 2428708, gdp_per_capita: 30100.0 },
-  { ibge_code: '2408102', name: 'Natal', uf: 'RN', region_code: 'NE', latitude: -5.7945, longitude: -35.211, population: 751300, gdp_per_capita: 33200.0 },
-  { ibge_code: '2507507', name: 'João Pessoa', uf: 'PB', region_code: 'NE', latitude: -7.1195, longitude: -34.845, population: 833932, gdp_per_capita: 28600.0 },
-  { ibge_code: '2704302', name: 'Maceió', uf: 'AL', region_code: 'NE', latitude: -9.6498, longitude: -35.7089, population: 957916, gdp_per_capita: 29100.0 },
-  { ibge_code: '2800308', name: 'Aracaju', uf: 'SE', region_code: 'NE', latitude: -10.9472, longitude: -37.0731, population: 602757, gdp_per_capita: 32400.0 },
-  { ibge_code: '2111300', name: 'São Luís', uf: 'MA', region_code: 'NE', latitude: -2.5307, longitude: -44.3068, population: 1037775, gdp_per_capita: 35700.0 },
-  { ibge_code: '2211001', name: 'Teresina', uf: 'PI', region_code: 'NE', latitude: -5.0892, longitude: -42.8016, population: 866300, gdp_per_capita: 27900.0 },
-  { ibge_code: '1302603', name: 'Manaus', uf: 'AM', region_code: 'N', latitude: -3.119, longitude: -60.0217, population: 2063689, gdp_per_capita: 50200.0 },
-  { ibge_code: '1501402', name: 'Belém', uf: 'PA', region_code: 'N', latitude: -1.4558, longitude: -48.4902, population: 1303403, gdp_per_capita: 26800.0 },
-  { ibge_code: '1721000', name: 'Palmas', uf: 'TO', region_code: 'N', latitude: -10.1753, longitude: -48.2982, population: 302692, gdp_per_capita: 36500.0 },
-  { ibge_code: '1100205', name: 'Porto Velho', uf: 'RO', region_code: 'N', latitude: -8.7612, longitude: -63.9004, population: 460434, gdp_per_capita: 43800.0 },
-  { ibge_code: '1200401', name: 'Rio Branco', uf: 'AC', region_code: 'N', latitude: -9.9754, longitude: -67.8249, population: 364756, gdp_per_capita: 29400.0 },
-  { ibge_code: '1600303', name: 'Macapá', uf: 'AP', region_code: 'N', latitude: 0.0349, longitude: -51.0694, population: 442933, gdp_per_capita: 27100.0 },
-  { ibge_code: '1400100', name: 'Boa Vista', uf: 'RR', region_code: 'N', latitude: 2.8235, longitude: -60.6758, population: 413486, gdp_per_capita: 33600.0 },
-  { ibge_code: '2201903', name: 'Bom Jesus', uf: 'PI', region_code: 'NE', latitude: -9.0714, longitude: -44.359, population: 28796, gdp_per_capita: 38100.0 },
-  { ibge_code: '2401701', name: 'Bom Jesus', uf: 'RN', region_code: 'NE', latitude: -5.9864, longitude: -35.5792, population: 9952, gdp_per_capita: 14200.0 },
-  { ibge_code: '4302303', name: 'Bom Jesus', uf: 'RS', region_code: 'S', latitude: -28.6686, longitude: -50.4167, population: 11202, gdp_per_capita: 41500.0 },
+  { municipality_code: '4106902', name: 'Curitiba', uf: 'PR', region_code: 'S', latitude: -25.4284, longitude: -49.2733, population: 1773718, gdp_per_capita: 67691.3 },
+  { municipality_code: '4125506', name: 'São José dos Pinhais', uf: 'PR', region_code: 'S', latitude: -25.5304, longitude: -49.2083, population: 329628, gdp_per_capita: 84512.0 },
+  { municipality_code: '4105805', name: 'Colombo', uf: 'PR', region_code: 'S', latitude: -25.2925, longitude: -49.2262, population: 232212, gdp_per_capita: 29450.0 },
+  { municipality_code: '4119152', name: 'Pinhais', uf: 'PR', region_code: 'S', latitude: -25.4429, longitude: -49.1927, population: 127019, gdp_per_capita: 64210.0 },
+  { municipality_code: '4101804', name: 'Araucária', uf: 'PR', region_code: 'S', latitude: -25.5859, longitude: -49.4047, population: 151666, gdp_per_capita: 171200.0 },
+  { municipality_code: '4104204', name: 'Campo Largo', uf: 'PR', region_code: 'S', latitude: -25.4595, longitude: -49.529, population: 136327, gdp_per_capita: 45120.0 },
+  { municipality_code: '4118204', name: 'Paranaguá', uf: 'PR', region_code: 'S', latitude: -25.5205, longitude: -48.5095, population: 145829, gdp_per_capita: 89300.0 },
+  { municipality_code: '4119905', name: 'Ponta Grossa', uf: 'PR', region_code: 'S', latitude: -25.0945, longitude: -50.1633, population: 358371, gdp_per_capita: 56890.0 },
+  { municipality_code: '4113700', name: 'Londrina', uf: 'PR', region_code: 'S', latitude: -23.3103, longitude: -51.1628, population: 555965, gdp_per_capita: 44120.0 },
+  { municipality_code: '4115200', name: 'Maringá', uf: 'PR', region_code: 'S', latitude: -23.421, longitude: -51.9331, population: 409657, gdp_per_capita: 53840.0 },
+  { municipality_code: '4104808', name: 'Cascavel', uf: 'PR', region_code: 'S', latitude: -24.9578, longitude: -53.4595, population: 348051, gdp_per_capita: 48750.0 },
+  { municipality_code: '4108304', name: 'Foz do Iguaçu', uf: 'PR', region_code: 'S', latitude: -25.5469, longitude: -54.5882, population: 285415, gdp_per_capita: 61200.0 },
+  { municipality_code: '4209102', name: 'Joinville', uf: 'SC', region_code: 'S', latitude: -26.3044, longitude: -48.8487, population: 616317, gdp_per_capita: 73450.0 },
+  { municipality_code: '4202404', name: 'Blumenau', uf: 'SC', region_code: 'S', latitude: -26.9194, longitude: -49.0661, population: 361261, gdp_per_capita: 63800.0 },
+  { municipality_code: '4208203', name: 'Itajaí', uf: 'SC', region_code: 'S', latitude: -26.9078, longitude: -48.6619, population: 264054, gdp_per_capita: 138400.0 },
+  { municipality_code: '4202008', name: 'Balneário Camboriú', uf: 'SC', region_code: 'S', latitude: -26.9906, longitude: -48.6348, population: 139155, gdp_per_capita: 52100.0 },
+  { municipality_code: '4205407', name: 'Florianópolis', uf: 'SC', region_code: 'S', latitude: -27.5954, longitude: -48.548, population: 537211, gdp_per_capita: 48900.0 },
+  { municipality_code: '4204202', name: 'Chapecó', uf: 'SC', region_code: 'S', latitude: -27.1004, longitude: -52.6152, population: 254785, gdp_per_capita: 59300.0 },
+  { municipality_code: '4204608', name: 'Criciúma', uf: 'SC', region_code: 'S', latitude: -28.6775, longitude: -49.3697, population: 214493, gdp_per_capita: 47200.0 },
+  { municipality_code: '4314902', name: 'Porto Alegre', uf: 'RS', region_code: 'S', latitude: -30.0346, longitude: -51.2177, population: 1332845, gdp_per_capita: 78586.94 },
+  { municipality_code: '4305108', name: 'Caxias do Sul', uf: 'RS', region_code: 'S', latitude: -29.1678, longitude: -51.1794, population: 463501, gdp_per_capita: 68120.0 },
+  { municipality_code: '4309308', name: 'Gramado', uf: 'RS', region_code: 'S', latitude: -29.3746, longitude: -50.8764, population: 40134, gdp_per_capita: 74500.0 },
+  { municipality_code: '4314407', name: 'Pelotas', uf: 'RS', region_code: 'S', latitude: -31.7654, longitude: -52.3376, population: 325685, gdp_per_capita: 34200.0 },
+  { municipality_code: '4316907', name: 'Santa Maria', uf: 'RS', region_code: 'S', latitude: -29.6842, longitude: -53.8069, population: 271735, gdp_per_capita: 36900.0 },
+  { municipality_code: '3550308', name: 'São Paulo', uf: 'SP', region_code: 'SE', latitude: -23.5505, longitude: -46.6333, population: 11451999, gdp_per_capita: 93156.23 },
+  { municipality_code: '3509502', name: 'Campinas', uf: 'SP', region_code: 'SE', latitude: -22.9056, longitude: -47.0608, population: 1139047, gdp_per_capita: 65400.0 },
+  { municipality_code: '3548500', name: 'Santos', uf: 'SP', region_code: 'SE', latitude: -23.9608, longitude: -46.3336, population: 418608, gdp_per_capita: 69800.0 },
+  { municipality_code: '3543402', name: 'Ribeirão Preto', uf: 'SP', region_code: 'SE', latitude: -21.1775, longitude: -47.8103, population: 698642, gdp_per_capita: 58200.0 },
+  { municipality_code: '3549904', name: 'São José dos Campos', uf: 'SP', region_code: 'SE', latitude: -23.1791, longitude: -45.8872, population: 697054, gdp_per_capita: 67300.0 },
+  { municipality_code: '3552205', name: 'Sorocaba', uf: 'SP', region_code: 'SE', latitude: -23.5015, longitude: -47.4526, population: 723682, gdp_per_capita: 62100.0 },
+  { municipality_code: '3304557', name: 'Rio de Janeiro', uf: 'RJ', region_code: 'SE', latitude: -22.9068, longitude: -43.1729, population: 6211223, gdp_per_capita: 59400.0 },
+  { municipality_code: '3303302', name: 'Niterói', uf: 'RJ', region_code: 'SE', latitude: -22.8832, longitude: -43.1034, population: 481749, gdp_per_capita: 108400.0 },
+  { municipality_code: '3106200', name: 'Belo Horizonte', uf: 'MG', region_code: 'SE', latitude: -19.9167, longitude: -43.9345, population: 2315560, gdp_per_capita: 46800.0 },
+  { municipality_code: '3170206', name: 'Uberlândia', uf: 'MG', region_code: 'SE', latitude: -18.9186, longitude: -48.2772, population: 713224, gdp_per_capita: 61900.0 },
+  { municipality_code: '3136702', name: 'Juiz de Fora', uf: 'MG', region_code: 'SE', latitude: -21.7642, longitude: -43.3503, population: 540756, gdp_per_capita: 36400.0 },
+  { municipality_code: '3205309', name: 'Vitória', uf: 'ES', region_code: 'SE', latitude: -20.3155, longitude: -40.3128, population: 322869, gdp_per_capita: 96500.0 },
+  { municipality_code: '3205200', name: 'Vila Velha', uf: 'ES', region_code: 'SE', latitude: -20.3297, longitude: -40.2925, population: 467722, gdp_per_capita: 34900.0 },
+  { municipality_code: '5300108', name: 'Brasília', uf: 'DF', region_code: 'CO', latitude: -15.7975, longitude: -47.8919, population: 2817381, gdp_per_capita: 98600.0 },
+  { municipality_code: '5208707', name: 'Goiânia', uf: 'GO', region_code: 'CO', latitude: -16.6869, longitude: -49.2648, population: 1437366, gdp_per_capita: 42900.0 },
+  { municipality_code: '5103403', name: 'Cuiabá', uf: 'MT', region_code: 'CO', latitude: -15.6014, longitude: -56.0979, population: 650877, gdp_per_capita: 49300.0 },
+  { municipality_code: '5002704', name: 'Campo Grande', uf: 'MS', region_code: 'CO', latitude: -20.4697, longitude: -54.6201, population: 898100, gdp_per_capita: 40200.0 },
+  { municipality_code: '2927408', name: 'Salvador', uf: 'BA', region_code: 'NE', latitude: -12.9777, longitude: -38.5016, population: 2417678, gdp_per_capita: 27400.0 },
+  { municipality_code: '2611606', name: 'Recife', uf: 'PE', region_code: 'NE', latitude: -8.0476, longitude: -34.877, population: 1488920, gdp_per_capita: 38900.0 },
+  { municipality_code: '2304400', name: 'Fortaleza', uf: 'CE', region_code: 'NE', latitude: -3.7319, longitude: -38.5267, population: 2428708, gdp_per_capita: 30100.0 },
+  { municipality_code: '2408102', name: 'Natal', uf: 'RN', region_code: 'NE', latitude: -5.7945, longitude: -35.211, population: 751300, gdp_per_capita: 33200.0 },
+  { municipality_code: '2507507', name: 'João Pessoa', uf: 'PB', region_code: 'NE', latitude: -7.1195, longitude: -34.845, population: 833932, gdp_per_capita: 28600.0 },
+  { municipality_code: '2704302', name: 'Maceió', uf: 'AL', region_code: 'NE', latitude: -9.6498, longitude: -35.7089, population: 957916, gdp_per_capita: 29100.0 },
+  { municipality_code: '2800308', name: 'Aracaju', uf: 'SE', region_code: 'NE', latitude: -10.9472, longitude: -37.0731, population: 602757, gdp_per_capita: 32400.0 },
+  { municipality_code: '2111300', name: 'São Luís', uf: 'MA', region_code: 'NE', latitude: -2.5307, longitude: -44.3068, population: 1037775, gdp_per_capita: 35700.0 },
+  { municipality_code: '2211001', name: 'Teresina', uf: 'PI', region_code: 'NE', latitude: -5.0892, longitude: -42.8016, population: 866300, gdp_per_capita: 27900.0 },
+  { municipality_code: '1302603', name: 'Manaus', uf: 'AM', region_code: 'N', latitude: -3.119, longitude: -60.0217, population: 2063689, gdp_per_capita: 50200.0 },
+  { municipality_code: '1501402', name: 'Belém', uf: 'PA', region_code: 'N', latitude: -1.4558, longitude: -48.4902, population: 1303403, gdp_per_capita: 26800.0 },
+  { municipality_code: '1721000', name: 'Palmas', uf: 'TO', region_code: 'N', latitude: -10.1753, longitude: -48.2982, population: 302692, gdp_per_capita: 36500.0 },
+  { municipality_code: '1100205', name: 'Porto Velho', uf: 'RO', region_code: 'N', latitude: -8.7612, longitude: -63.9004, population: 460434, gdp_per_capita: 43800.0 },
+  { municipality_code: '1200401', name: 'Rio Branco', uf: 'AC', region_code: 'N', latitude: -9.9754, longitude: -67.8249, population: 364756, gdp_per_capita: 29400.0 },
+  { municipality_code: '1600303', name: 'Macapá', uf: 'AP', region_code: 'N', latitude: 0.0349, longitude: -51.0694, population: 442933, gdp_per_capita: 27100.0 },
+  { municipality_code: '1400100', name: 'Boa Vista', uf: 'RR', region_code: 'N', latitude: 2.8235, longitude: -60.6758, population: 413486, gdp_per_capita: 33600.0 },
+  { municipality_code: '2201903', name: 'Bom Jesus', uf: 'PI', region_code: 'NE', latitude: -9.0714, longitude: -44.359, population: 28796, gdp_per_capita: 38100.0 },
+  { municipality_code: '2401701', name: 'Bom Jesus', uf: 'RN', region_code: 'NE', latitude: -5.9864, longitude: -35.5792, population: 9952, gdp_per_capita: 14200.0 },
+  { municipality_code: '4302303', name: 'Bom Jesus', uf: 'RS', region_code: 'S', latitude: -28.6686, longitude: -50.4167, population: 11202, gdp_per_capita: 41500.0 },
 ];
 
 const enrichedByCode = new Map(
-  DEFAULT_MUNICIPALITIES.map(m => [m.ibge_code, m])
+  DEFAULT_MUNICIPALITIES.map(m => [m.municipality_code, m])
 );
 
-export const ALL_IBGE_MUNICIPALITIES =
-  Array.isArray(ibgeCompactRows) && ibgeCompactRows.length > 0
-    ? ibgeCompactRows.map(([code, name, uf, lat, lon, capital]) => {
+export const ALL_MUNICIPALITIES =
+  Array.isArray(muniCompactRows) && muniCompactRows.length > 0
+    ? muniCompactRows.map(([code, name, uf, lat, lon, capital]) => {
         const enriched = enrichedByCode.get(String(code));
         return {
-          ibge_code: String(code),
+          municipality_code: String(code),
           name,
           uf,
           region_code: UF_TO_REGION[uf] || '',
@@ -387,7 +387,7 @@ export function filterMunicipalitiesByGeo(
   let center = null;
   if (centerMunicipalityId) {
     center = (municipalities || []).find(
-      m => String(m.ibge_code) === String(centerMunicipalityId)
+      m => String(m.municipality_code) === String(centerMunicipalityId)
     );
     if (!center) {
       throw new Error(
@@ -404,7 +404,7 @@ export function filterMunicipalitiesByGeo(
     if (region && region !== 'all' && mRegion !== region) continue;
     if (uf && uf !== 'all' && m.uf !== uf) continue;
     if (normalizedSearch) {
-      const label = normalizeName(`${m.name} ${m.uf} ${m.ibge_code}`);
+      const label = normalizeName(`${m.name} ${m.uf} ${m.municipality_code}`);
       if (!label.includes(normalizedSearch)) continue;
     }
 
@@ -666,7 +666,7 @@ export function canonicalEventKey({
   title = '',
   attractionName = '',
   venueName = '',
-  ibgeCode = '',
+  municipalityCode = '',
   eventDateStart = '',
   deliveryMode = 'presencial',
 } = {}) {
@@ -676,7 +676,7 @@ export function canonicalEventKey({
   const coreTitle = normalizeEventIdentityToken(title);
   const coreVenue = normalizeEventIdentityToken(venueName);
   const locationToken =
-    deliveryMode === 'online' ? 'online' : String(ibgeCode || 'no-ibge');
+    deliveryMode === 'online' ? 'online' : String(municipalityCode || 'no-city');
   const dateToken = String(eventDateStart || '').slice(0, 10);
   return [
     coreName || coreTitle,
@@ -696,21 +696,21 @@ export function canonicalEventKey({
  */
 export function computeOpportunitiesMatrix({
   municipalities = [],
-  audienceByIbge = new Map(),
-  eventsByIbge = new Map(),
+  audienceByCity = new Map(),
+  eventsByCity = new Map(),
 } = {}) {
   const withCoverage = [];
   const insufficientCoverage = [];
 
   for (const city of municipalities) {
-    const aud = audienceByIbge.get(city.ibge_code);
-    const ev = eventsByIbge.get(city.ibge_code);
+    const aud = audienceByCity.get(city.municipality_code);
+    const ev = eventsByCity.get(city.municipality_code);
     const hasAudience = aud !== undefined && aud !== null && Number.isFinite(aud.value);
     const hasEvents = ev !== undefined && ev !== null && Number.isFinite(ev.count);
 
     if (!hasAudience || !hasEvents) {
       insufficientCoverage.push({
-        ibgeCode: city.ibge_code,
+        municipalityCode: city.municipality_code,
         cityName: city.name,
         uf: city.uf,
         population: city.population,
@@ -780,7 +780,7 @@ export function computeOpportunitiesMatrix({
     }
 
     return {
-      ibgeCode: city.ibge_code,
+      municipalityCode: city.municipality_code,
       cityName: city.name,
       uf: city.uf,
       population: city.population,

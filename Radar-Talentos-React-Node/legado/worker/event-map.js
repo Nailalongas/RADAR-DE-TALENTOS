@@ -12,19 +12,19 @@ async function eventMapApi(request, env) {
   const {rows} = await request.json();
   const date = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10) === value;
   const metrics = {Instagram:['seguidores'],YouTube:['visualizacoes','minutos_assistidos']};
-  if (!Array.isArray(rows) || !rows.length || rows.length > 500 || rows.some(r => !r || !/^\d{7}$/.test(r.ibge) ||
+  if (!Array.isArray(rows) || !rows.length || rows.length > 500 || rows.some(r => !r || !/^\d{7}$/.test(r.codigo) ||
       !Object.hasOwn(metrics,r.rede) || !metrics[r.rede].includes(r.metrica) ||
       !Number.isSafeInteger(r.valor) || r.valor < 0 || !date(r.inicio) || !date(r.fim) || r.inicio > r.fim ||
       !['todos','inscritos'].includes(r.publico) || (r.rede === 'Instagram' && r.publico !== 'todos') ||
       typeof r.parcial !== 'boolean' || typeof r.fonte !== 'string' || !r.fonte.trim() || r.fonte.length > 240)) {
-    return json({error:'Confira códigos IBGE, métricas, valores, datas, público e fonte do relatório.'},400);
+    return json({error:'Confira códigos municipais, métricas, valores, datas, público e fonte do relatório.'},400);
   }
-  const identity = r => [r.ibge,r.rede,r.metrica,r.inicio,r.fim,r.publico].join('|');
+  const identity = r => [r.codigo,r.rede,r.metrica,r.inicio,r.fim,r.publico].join('|');
   for (let attempt=0; attempt<3; attempt++) {
     const stored = await env.BUCKET.get(key);
     const merged = new Map((stored ? await stored.json() : []).map(r => [identity(r),r]));
-    for (const {ibge,rede,metrica,valor,inicio,fim,publico,parcial,fonte} of rows) {
-      const record = {ibge,rede,metrica,valor,inicio,fim,publico,parcial,fonte};
+    for (const {codigo,rede,metrica,valor,inicio,fim,publico,parcial,fonte} of rows) {
+      const record = {codigo,rede,metrica,valor,inicio,fim,publico,parcial,fonte};
       merged.set(identity(record),record);
     }
     if (merged.size > 10000) return json({error:'Limite de registros por perfil atingido.'},409);
@@ -34,7 +34,7 @@ async function eventMapApi(request, env) {
   return json({error:'Houve outra importação simultânea. Tente novamente.'},409);
 }
 
-async function eventMapIbge(request) {
+async function eventMapGeo(request) {
   if (request.method !== 'GET') return json({error:'Método não permitido.'},405);
   const params = new URL(request.url).searchParams;
   const city = params.get('city');
@@ -51,19 +51,19 @@ async function eventMapIbge(request) {
     }
     case '4714':
     case '5938': {
-      if (!/^\d{7}$/.test(city||'')) return json({error:'Código IBGE inválido.'},400);
+      if (!/^\d{7}$/.test(city||'')) return json({error:'Código municipal inválido.'},400);
       const table = params.get('kind');
       path = table==='4714' ? 'v3/agregados/4714/periodos/2022/variaveis/93' : 'v3/agregados/5938/periodos/-1/variaveis/37%7C513';
       path += '?localidades=N6%5B'+city+'%5D';
       break;
     }
-    default: return json({error:'Consulta IBGE inválida.'},400);
+    default: return json({error:'Consulta geográfica inválida.'},400);
   }
   try {
-    const response = await fetch('https://servicodados.ibge.gov.br/api/'+path,{signal:AbortSignal.timeout(10000),cf:{cacheEverything:true,cacheTtl:86400}});
-    if (!response.ok) return json({error:'Fonte do IBGE indisponível.'},502);
+    const response = await fetch('https://geo.local/api/'+path,{signal:AbortSignal.timeout(10000),cf:{cacheEverything:true,cacheTtl:86400}});
+    if (!response.ok) return json({error:'Fonte geográfica indisponível.'},502);
     return new Response(response.body,{headers:{'Content-Type':'application/json','Cache-Control':'private, max-age=86400'}});
   } catch {
-    return json({error:'Fonte do IBGE indisponível.'},502);
+    return json({error:'Fonte geográfica indisponível.'},502);
   }
 }

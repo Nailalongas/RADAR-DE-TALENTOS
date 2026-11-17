@@ -1,19 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ALL_IBGE_MUNICIPALITIES,
+  ALL_MUNICIPALITIES,
   BRAZIL_REGIONS,
   RADIUS_PRESETS_KM,
   UF_TO_REGION,
   filterMunicipalitiesByGeo,
 } from '../domain/geo-intelligence.js';
-import ibgeUfMalha from '../domain/ibge-uf-malha.json' with { type: 'json' };
+import ufMalha from '../domain/uf-malha.json' with { type: 'json' };
 import { formatNumber } from '../domain/research.js';
 import {
   getAudienceMap,
   postAdminAudienceImport,
 } from '../services/api.js';
 
-const IBGE_CODE_TO_UF = {
+const STATE_CODE_TO_UF = {
   11: 'RO',
   12: 'AC',
   13: 'AM',
@@ -80,7 +80,7 @@ function buildStateSvgPaths(geojson) {
   return features
     .map(feature => {
       const codarea = String(feature.properties?.codarea || feature.id || '');
-      const uf = IBGE_CODE_TO_UF[codarea];
+      const uf = STATE_CODE_TO_UF[codarea];
       if (!uf || !feature.geometry) return null;
       const polygons =
         feature.geometry.type === 'Polygon'
@@ -111,10 +111,10 @@ function buildStateSvgPaths(geojson) {
     .filter(Boolean);
 }
 
-const STATE_SVG_PATHS = buildStateSvgPaths(ibgeUfMalha);
+const STATE_SVG_PATHS = buildStateSvgPaths(ufMalha);
 
 const SAMPLE_AUDIENCE_CSV = [
-  'talentName;platform;metric;unit;granularity;ibgeCode;periodStart;periodEnd;value;provenance;source',
+  'talentName;platform;metric;unit;granularity;municipalityCode;periodStart;periodEnd;value;provenance;source',
   'Natiruts;YouTube;visualizacoes;visualizacoes;municipality;4106902;2026-10-01;2026-10-31;85000;verificado;YouTube Analytics Autorizado (Exemplo)',
   'Natiruts;YouTube;visualizacoes;visualizacoes;municipality;4209102;2026-10-01;2026-10-31;32000;verificado;YouTube Analytics Autorizado (Exemplo)',
   'Natiruts;YouTube;visualizacoes;visualizacoes;municipality;4119905;2026-10-01;2026-10-31;21000;verificado;YouTube Analytics Autorizado (Exemplo)',
@@ -129,7 +129,7 @@ const SAMPLE_AUDIENCE_CSV = [
 ].join('\n');
 
 export default function GeoAudienceRadar() {
-  const [municipalities] = useState(ALL_IBGE_MUNICIPALITIES);
+  const [municipalities] = useState(ALL_MUNICIPALITIES);
   const [talentName, setTalentName] = useState('');
   const [platform, setPlatform] = useState('YouTube');
   const [metric, setMetric] = useState('visualizacoes');
@@ -171,19 +171,19 @@ export default function GeoAudienceRadar() {
   const centerCandidateOptions = useMemo(() => {
     const q = centerSelectorQuery.trim().toLowerCase();
     const current = municipalities.find(
-      m => m.ibge_code === centerMunicipalityId
+      m => m.municipality_code === centerMunicipalityId
     );
     const matches = q
       ? municipalities
           .filter(
             m =>
               m.name.toLowerCase().includes(q) ||
-              m.ibge_code.includes(q) ||
+              m.municipality_code.includes(q) ||
               `${m.name.toLowerCase()} (${m.uf.toLowerCase()})`.includes(q)
           )
           .slice(0, 120)
       : municipalities.filter(m => m.capital || m.population).slice(0, 120);
-    if (current && !matches.some(m => m.ibge_code === current.ibge_code)) {
+    if (current && !matches.some(m => m.municipality_code === current.municipality_code)) {
       return [current, ...matches];
     }
     return matches;
@@ -246,7 +246,7 @@ export default function GeoAudienceRadar() {
     if (audienceReport.items?.length) return audienceReport.items;
     if (!localImportedRows.length) return [];
     const allowedMap = new Map(
-      geoFiltered.municipalities.map(m => [m.ibge_code, m])
+      geoFiltered.municipalities.map(m => [m.municipality_code, m])
     );
     const filtered = localImportedRows.filter(
       r =>
@@ -254,14 +254,14 @@ export default function GeoAudienceRadar() {
           r.talentName.toLowerCase().includes(talentName.toLowerCase())) &&
         r.platform === platform &&
         r.metric === metric &&
-        allowedMap.has(r.ibgeCode)
+        allowedMap.has(r.municipalityCode)
     );
     const total = filtered.reduce((s, r) => s + r.value, 0);
     return filtered
       .map(r => {
-        const city = allowedMap.get(r.ibgeCode);
+        const city = allowedMap.get(r.municipalityCode);
         return {
-          ibgeCode: r.ibgeCode,
+          municipalityCode: r.municipalityCode,
           cityName: city.name,
           uf: city.uf,
           regionCode: city.region_code,
@@ -297,8 +297,8 @@ export default function GeoAudienceRadar() {
     perCapita,
   ]);
 
-  const audienceByIbge = useMemo(
-    () => new Map(displayedAudienceItems.map(i => [i.ibgeCode, i])),
+  const audienceByCity = useMemo(
+    () => new Map(displayedAudienceItems.map(i => [i.municipalityCode, i])),
     [displayedAudienceItems]
   );
 
@@ -365,7 +365,7 @@ export default function GeoAudienceRadar() {
         metric: (obj.metric || obj.metrica || 'visualizacoes').toLowerCase(),
         unit: obj.unit || obj.metric || 'visualizacoes',
         granularity: obj.granularity || 'municipality',
-        ibgeCode: obj.ibgeCode || obj.ibge,
+        municipalityCode: obj.municipalityCode || obj.cityCode || obj.codigo,
         periodStart: obj.periodStart || obj.inicio || '2026-10-01',
         periodEnd: obj.periodEnd || obj.fim || '2026-10-31',
         value: Number(obj.value ?? obj.valor),
@@ -395,7 +395,7 @@ export default function GeoAudienceRadar() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'modelo-audiencia-regional-ibge.csv';
+    a.download = 'modelo-audiencia-regional.csv';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -405,8 +405,8 @@ export default function GeoAudienceRadar() {
   // Sort municipalities in the table: those with known audience first, then by distance or population
   const sortedMunicipalitiesForTable = useMemo(() => {
     return [...geoFiltered.municipalities].sort((a, b) => {
-      const audA = audienceByIbge.get(a.ibge_code);
-      const audB = audienceByIbge.get(b.ibge_code);
+      const audA = audienceByCity.get(a.municipality_code);
+      const audB = audienceByCity.get(b.municipality_code);
       if (audA && !audB) return -1;
       if (!audA && audB) return 1;
       if (audA && audB) {
@@ -422,7 +422,7 @@ export default function GeoAudienceRadar() {
         a.name.localeCompare(b.name, 'pt-BR')
       );
     });
-  }, [geoFiltered.municipalities, audienceByIbge, perCapita]);
+  }, [geoFiltered.municipalities, audienceByCity, perCapita]);
 
   const pagedMunicipalities = sortedMunicipalitiesForTable.slice(
     tablePage * PAGE_SIZE,
@@ -442,13 +442,13 @@ export default function GeoAudienceRadar() {
       m =>
         m.capital ||
         m.population > 100000 ||
-        audienceByIbge.has(m.ibge_code) ||
-        m.ibge_code === centerMunicipalityId
+        audienceByCity.has(m.municipality_code) ||
+        m.municipality_code === centerMunicipalityId
     );
   }, [
     geoFiltered.municipalities,
     effectiveRadiusKm,
-    audienceByIbge,
+    audienceByCity,
     centerMunicipalityId,
   ]);
 
@@ -457,10 +457,10 @@ export default function GeoAudienceRadar() {
       <div className="research-panel">
         <h2 className="research-panel-title">
           Radar Geográfico Cartográfico do Brasil ({formatNumber(municipalities.length)}{' '}
-          municípios oficiais IBGE)
+          municípios oficiais)
         </h2>
         <p className="small" style={{ marginBottom: 16 }}>
-          Malha territorial oficial das 27 UFs (IBGE) e todos os{' '}
+          Malha territorial oficial das 27 UFs e todos os{' '}
           <b>{formatNumber(municipalities.length)} municípios brasileiros</b>{' '}
           com coordenadas WGS84 e cálculo geodésico Haversine por raio em km.
           Métricas de redes distintas não são somadas como pessoas únicas.
@@ -539,7 +539,7 @@ export default function GeoAudienceRadar() {
               Filtrar cidade de referência (5.571 municípios)
               <input
                 type="search"
-                placeholder="Digite qualquer cidade ou código IBGE…"
+                placeholder="Digite qualquer cidade ou código municipal…"
                 value={centerSelectorQuery}
                 onChange={e => setCenterSelectorQuery(e.target.value)}
               />
@@ -553,8 +553,8 @@ export default function GeoAudienceRadar() {
                 onChange={e => setCenterMunicipalityId(e.target.value)}
               >
                 {centerCandidateOptions.map(m => (
-                  <option key={m.ibge_code} value={m.ibge_code}>
-                    {m.name} ({m.uf}) · IBGE {m.ibge_code}
+                  <option key={m.municipality_code} value={m.municipality_code}>
+                    {m.name} ({m.uf}) · Código {m.municipality_code}
                   </option>
                 ))}
               </select>
@@ -616,7 +616,7 @@ export default function GeoAudienceRadar() {
               onChange={e => setPerCapita(e.target.checked)}
             />
             Ordenar proporcionalmente por 100 mil habitantes (população Censo
-            IBGE 2022)
+            2022)
           </label>
           <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
             <button
@@ -680,7 +680,7 @@ export default function GeoAudienceRadar() {
         </div>
         <p className="summary-note">
           {audienceReport.coverageNotice ||
-            'Malha territorial oficial do IBGE (27 UFs) e 5.571 municípios com coordenadas WGS84. Ausência de relatório oficial aparece como Indisponível, nunca como zero.'}
+            'Malha territorial oficial das 27 UFs e 5.571 municípios com coordenadas WGS84. Ausência de relatório oficial aparece como Indisponível, nunca como zero.'}
         </p>
       </section>
 
@@ -694,7 +694,7 @@ export default function GeoAudienceRadar() {
       >
         <section className="panel">
           <div className="sectionhead" style={{ marginBottom: 10 }}>
-            <h3>Mapa Cartográfico do Brasil (Malha IBGE)</h3>
+            <h3>Mapa Cartográfico do Brasil (Malha Territorial)</h3>
             <div className="chips">
               <button
                 type="button"
@@ -745,7 +745,7 @@ export default function GeoAudienceRadar() {
             role="img"
             aria-label="Mapa cartográfico oficial do Brasil por estado e municípios"
           >
-            {/* Camada 1: Malha territorial oficial das 27 UFs (IBGE) */}
+            {/* Camada 1: Malha territorial oficial das 27 UFs */}
             <g aria-label="Estados brasileiros">
               {STATE_SVG_PATHS.map(st => {
                 const stateVal = audienceByState.get(st.uf) || 0;
@@ -801,10 +801,10 @@ export default function GeoAudienceRadar() {
               {mapPoints.map(m => {
                 if (m.latitude == null || m.longitude == null) return null;
                 const pt = projectToSvg(m.latitude, m.longitude);
-                const audItem = audienceByIbge.get(m.ibge_code);
+                const audItem = audienceByCity.get(m.municipality_code);
                 const isCenter =
                   geoFiltered.center &&
-                  m.ibge_code === geoFiltered.center.ibge_code;
+                  m.municipality_code === geoFiltered.center.municipality_code;
                 const r = audItem
                   ? 4.5 + (audItem.value / maxVal) * 11
                   : isCenter
@@ -818,9 +818,9 @@ export default function GeoAudienceRadar() {
 
                 return (
                   <g
-                    key={m.ibge_code}
+                    key={m.municipality_code}
                     style={{ cursor: 'pointer' }}
-                    onClick={() => setCenterMunicipalityId(m.ibge_code)}
+                    onClick={() => setCenterMunicipalityId(m.municipality_code)}
                   >
                     <circle
                       cx={pt.x}
@@ -832,7 +832,7 @@ export default function GeoAudienceRadar() {
                       strokeWidth={audItem || isCenter ? '1' : '0.4'}
                     >
                       <title>
-                        {`${m.name} (${m.uf}) · IBGE ${m.ibge_code}${
+                        {`${m.name} (${m.uf}) · Código ${m.municipality_code}${
                           m.distanceKm !== null ? ` · ${m.distanceKm} km` : ''
                         }${
                           audItem
@@ -869,7 +869,7 @@ export default function GeoAudienceRadar() {
             <span className="badge" style={{ background: '#102d4c', color: '#fff' }}>
               ● Cidade de referência do raio
             </span>
-            <span className="badge">● Municípios no raio (IBGE)</span>
+            <span className="badge">● Municípios no raio</span>
           </div>
         </section>
 
@@ -886,7 +886,7 @@ export default function GeoAudienceRadar() {
           <p className="small">
             Qualquer um dos 5.571 municípios brasileiros pode ser selecionado
             como referência do raio em km. Homônimos são desambiguados pela UF e
-            pelo código IBGE de 7 dígitos.
+            pelo código municipal de 7 dígitos.
           </p>
 
           <div style={{ overflowX: 'auto' }}>
@@ -894,7 +894,7 @@ export default function GeoAudienceRadar() {
               <thead>
                 <tr>
                   <th>#</th>
-                  <th>Município (UF) · IBGE</th>
+                  <th>Município (UF) · Código</th>
                   <th>Distância</th>
                   <th>
                     {platform} · {metric}
@@ -905,17 +905,17 @@ export default function GeoAudienceRadar() {
               </thead>
               <tbody>
                 {pagedMunicipalities.map((m, idx) => {
-                  const aud = audienceByIbge.get(m.ibge_code);
+                  const aud = audienceByCity.get(m.municipality_code);
                   const pos = tablePage * PAGE_SIZE + idx + 1;
                   return (
-                    <tr key={m.ibge_code}>
+                    <tr key={m.municipality_code}>
                       <td>{pos}</td>
                       <td>
                         <b>
                           {m.name} ({m.uf})
                         </b>
                         <br />
-                        <small>IBGE {m.ibge_code}</small>
+                        <small>Código {m.municipality_code}</small>
                       </td>
                       <td>
                         {m.distanceKm !== null ? `${m.distanceKm} km` : '—'}
@@ -945,7 +945,7 @@ export default function GeoAudienceRadar() {
                           type="button"
                           style={{ padding: '6px 10px', fontSize: 12 }}
                           onClick={() => {
-                            setCenterMunicipalityId(m.ibge_code);
+                            setCenterMunicipalityId(m.municipality_code);
                             if (radiusMode === 'none') setRadiusMode('150');
                           }}
                         >
@@ -998,7 +998,7 @@ export default function GeoAudienceRadar() {
         <p className="small">
           Campos esperados:{' '}
           <code>
-            talentName;platform;metric;unit;granularity;ibgeCode;periodStart;periodEnd;value;provenance;source
+            talentName;platform;metric;unit;granularity;municipalityCode;periodStart;periodEnd;value;provenance;source
           </code>
           . Importar o mesmo relatório duas vezes atualiza o registro existente
           sem duplicar.

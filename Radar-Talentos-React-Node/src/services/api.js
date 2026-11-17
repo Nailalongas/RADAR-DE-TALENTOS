@@ -1,5 +1,5 @@
 import {
-  ALL_IBGE_MUNICIPALITIES,
+  ALL_MUNICIPALITIES,
   BRAZIL_REGIONS,
   DEFAULT_MUNICIPALITIES,
   EVENT_MODALITIES,
@@ -64,15 +64,15 @@ export async function getGeoMunicipalities({
     }
   } catch {}
   return {
-    ...filterMunicipalitiesByGeo(ALL_IBGE_MUNICIPALITIES, {
+    ...filterMunicipalitiesByGeo(ALL_MUNICIPALITIES, {
       search,
       uf,
       region,
       centerMunicipalityId,
       radiusKm,
     }),
-    totalInBase: ALL_IBGE_MUNICIPALITIES.length,
-    sourceVersion: 'IBGE Localidades (5.571 municípios oficiais)',
+    totalInBase: ALL_MUNICIPALITIES.length,
+    sourceVersion: 'Base Nacional (5.571 municípios oficiais)',
   };
 }
 

@@ -61,7 +61,7 @@ CREATE TABLE research_archives (
 ) STRICT;
 
 CREATE TABLE event_cities (
-  ibge_code TEXT PRIMARY KEY NOT NULL CHECK(ibge_code GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+  municipality_code TEXT PRIMARY KEY NOT NULL CHECK(municipality_code GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
   name TEXT NOT NULL CHECK(length(trim(name)) > 0),
   state_uf TEXT NOT NULL CHECK(length(state_uf) = 2),
   population INTEGER CHECK(population IS NULL OR population >= 0),
@@ -71,7 +71,7 @@ CREATE TABLE event_cities (
 CREATE TABLE audience_estimates (
   id TEXT PRIMARY KEY NOT NULL,
   talent_id TEXT NOT NULL REFERENCES talents(id) ON DELETE CASCADE,
-  ibge_code TEXT NOT NULL REFERENCES event_cities(ibge_code),
+  municipality_code TEXT NOT NULL REFERENCES event_cities(municipality_code),
   network TEXT NOT NULL CHECK(network IN ('Instagram','YouTube','Spotify')),
   metric_type TEXT NOT NULL CHECK(metric_type IN ('followers','viewers','engaged_audience','views','watch_minutes','listeners')),
   percentage REAL CHECK(percentage IS NULL OR (percentage >= 0 AND percentage <= 100)),
@@ -85,7 +85,7 @@ CREATE TABLE audience_estimates (
 CREATE TABLE event_sessions (
   id TEXT PRIMARY KEY NOT NULL,
   talent_id TEXT NOT NULL REFERENCES talents(id) ON DELETE CASCADE,
-  ibge_code TEXT NOT NULL REFERENCES event_cities(ibge_code),
+  municipality_code TEXT NOT NULL REFERENCES event_cities(municipality_code),
   venue_name TEXT NOT NULL CHECK(length(trim(venue_name)) > 0),
   session_date TEXT NOT NULL CHECK(session_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
   venue_capacity INTEGER CHECK(venue_capacity IS NULL OR venue_capacity > 0),

@@ -14,7 +14,7 @@ O Radar ajuda a descobrir talentos e acompanhar a evolução de seguidores do In
 
 ## Mapa e próximos passos
 
-O mapa faz parte de Ver evolução. Os cartões do piloto Natiruts usam Curitiba, São Paulo e Porto Alegre. População, PIB por habitante e histórico de apresentações contextualizam a cidade. A audiência oficial usa relatórios por município, identificados pelo código IBGE, com fonte, métrica e período. A agregação por estado deve indicar cobertura parcial quando o relatório cobre apenas parte dos municípios.
+O mapa faz parte de Ver evolução. Os cartões do piloto Natiruts usam Curitiba, São Paulo e Porto Alegre. População, PIB por habitante e histórico de apresentações contextualizam a cidade. A audiência oficial usa relatórios por município, identificados pelo código municipal, com fonte, métrica e período. A agregação por estado deve indicar cobertura parcial quando o relatório cobre apenas parte dos municípios.
 
 O **Relatório de audiência estimada** dentro do mapa foi publicado com as três cidades aguardando amostra. A próxima entrega é validar uma amostra do HypeAuditor ou da Modash antes da integração: confirmar cobertura brasileira, custo, data, município, percentual e se a amostra mede seguidores, espectadores ou audiência engajada. Manter o dado estimado com fonte e data. O Instagram Insights e o YouTube Analytics dependem dos relatórios ou do acesso autorizado de cada conta. O YouTube por cidade mede atividade, como visualizações e minutos assistidos.
 

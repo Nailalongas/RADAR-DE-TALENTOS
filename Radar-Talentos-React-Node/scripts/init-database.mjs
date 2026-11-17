@@ -10,7 +10,7 @@ try {
   console.log('Migrações:', db.prepare('SELECT name, applied_at FROM schema_migrations ORDER BY name').all());
   console.log('Categorias:', db.prepare('SELECT count(*) AS total FROM categories').get().total);
   console.log('Modalidades:', db.prepare('SELECT count(*) AS total FROM modalities').get().total);
-  console.log('Municípios IBGE com coordenadas:', db.prepare('SELECT count(*) AS total FROM municipalities WHERE lat IS NOT NULL').get().total);
+  console.log('Municípios com coordenadas:', db.prepare('SELECT count(*) AS total FROM municipalities WHERE lat IS NOT NULL').get().total);
   console.log('Eventos únicos (Fase 3):', db.prepare('SELECT count(*) AS total FROM events').get().total);
   console.log('Declarações de cobertura (Fase 5):', db.prepare('SELECT count(*) AS total FROM event_coverage').get().total);
 } finally {
