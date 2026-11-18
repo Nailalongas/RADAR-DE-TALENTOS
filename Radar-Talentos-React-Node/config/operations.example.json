@@ -198,7 +198,56 @@
       "retryMinutes": 60,
       "maxAttempts": 3,
       "talentId": ""
+    },
+    {
+      "id": "instagram-commercial",
+      "kind": "metrics",
+      "commercial": true,
+      "provider": "Instagram",
+      "adapter": "file",
+      "enabled": false,
+      "file": "instagram-commercial.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00"
+    },
+    {
+      "id": "youtube-commercial",
+      "kind": "metrics",
+      "commercial": true,
+      "provider": "YouTube",
+      "adapter": "file",
+      "enabled": false,
+      "file": "youtube-commercial.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00"
+    },
+    {
+      "id": "spotify-commercial",
+      "kind": "metrics",
+      "commercial": true,
+      "provider": "Spotify",
+      "adapter": "file",
+      "enabled": false,
+      "file": "spotify-commercial.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00"
+    },
+    {
+      "id": "tiktok-commercial",
+      "kind": "metrics",
+      "commercial": true,
+      "provider": "TikTok",
+      "adapter": "file",
+      "enabled": false,
+      "file": "tiktok-commercial.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00"
     }
   ],
-  "enableRegionalAudience": true
+  "enableRegionalAudience": true,
+  "enableCommercial": true
 }

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { importEvents } from './events.mjs';
 import { importRegionalReport } from './regional-dashboard.mjs';
+import { importCommercial } from './commercial.mjs';
 
 const UF_REGIONS = {
   AC: 'Norte',
@@ -289,6 +290,168 @@ export function seedPilotDatabaseIfEmpty(db) {
       const batch = JSON.parse(readFileSync(batchPath, 'utf8'));
       importEvents(db, batch);
     }
+  }
+
+  const commercialCount = db.prepare('SELECT count(*) AS n FROM commercial_snapshots').get().n;
+  if (commercialCount === 0) {
+    const shiftDay = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const d0 = shiftDay(0);
+    const d7 = shiftDay(-7);
+    const d15 = shiftDay(-15);
+    const d30 = shiftDay(-30);
+    const d60 = shiftDay(-60);
+    const d90 = shiftDay(-90);
+
+    const commercialArtists = [
+      { id: 't-abner-dantas', name: 'Abner Dantas', modalities: ['humor'], base: 3500, now: 7800, slug: 'abnerdantas' },
+      { id: 't-walmir-alencar', name: 'Walmir Alencar', modalities: ['shows'], base: 8000, now: 14500, slug: 'walmiralencar' },
+      { id: 't-gio-lisboa', name: 'Gio Lisboa', modalities: ['humor'], base: 32000, now: 51000, slug: 'giolisboa' },
+      { id: 't-emerson-ceara', name: 'Emerson Ceará', modalities: ['humor'], base: 42000, now: 53000, slug: 'emersonceara' },
+      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', modalities: ['humor'], base: 64000, now: 88000, slug: 'rodrigomarques' },
+      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', modalities: ['humor'], base: 72000, now: 94000, slug: 'jonathannemer' },
+      { id: 't-afonso-padilha', name: 'Afonso Padilha', modalities: ['humor'], base: 210000, now: 285000, slug: 'afonsopadilha' },
+      { id: 't-thiaguinho', name: 'Thiaguinho', modalities: ['shows'], base: 450000, now: 560000, slug: 'thiaguinho' },
+      { id: 't-natiruts', name: 'Natiruts', modalities: ['shows'], base: 380000, now: 445000, slug: 'natiruts' },
+      { id: 't-luan-santana', name: 'Luan Santana', modalities: ['shows'], base: 820000, now: 950000, slug: 'luansantana' },
+      { id: 't-jorge-mateus', name: 'Jorge & Mateus', modalities: ['shows'], base: 910000, now: 1040000, slug: 'jorgeemateus' },
+      { id: 't-alok', name: 'Alok', modalities: ['shows'], base: 1200000, now: 1380000, slug: 'alok' },
+      { id: 't-leandro-karnal', name: 'Leandro Karnal', modalities: ['palestras'], base: 5400, now: 9200, slug: 'leandrokarnal' },
+      { id: 't-palavra-cantada', name: 'Palavra Cantada', modalities: ['infantil'], base: 28000, now: 41500, slug: 'palavracantada' },
+    ];
+
+    const series = (b, n, factor = 1) => {
+      const v90 = Math.max(100, Math.round(b * 0.72 * factor));
+      const v60 = Math.max(100, Math.round(b * 0.86 * factor));
+      const v30 = Math.max(100, Math.round(b * factor));
+      const v15 = Math.max(100, Math.round((b + (n - b) * 0.48) * factor));
+      const v7 = Math.max(100, Math.round((b + (n - b) * 0.76) * factor));
+      const v0 = Math.max(100, Math.round(n * factor));
+      return [
+        [d90, v90],
+        [d60, v60],
+        [d30, v30],
+        [d15, v15],
+        [d7, v7],
+        [d0, v0],
+      ];
+    };
+
+    const batch = {
+      authorization_ref: 'Monitoramento comercial autorizado Radar de Talentos',
+      artists: commercialArtists.map((a) => ({
+        id: a.id,
+        name: a.name,
+        modalities: a.modalities,
+        accounts: [
+          {
+            id: `${a.id}-yt`,
+            network: 'YouTube',
+            url: `https://www.youtube.com/@${a.slug}`,
+            identity_source: 'Canal oficial verificado',
+            snapshots: [
+              ...series(a.base, a.now, 1.0).map(([dt, val]) => ({
+                metric: 'subscribers',
+                observed_on: dt,
+                value: val,
+                source: 'YouTube Official Channel',
+              })),
+              ...series(a.base, a.now, 14.5).map(([dt, val]) => ({
+                metric: 'views',
+                observed_on: dt,
+                value: val,
+                source: 'YouTube Official Channel',
+              })),
+              ...series(a.base, a.now, 0.85).map(([dt, val]) => ({
+                metric: 'likes',
+                observed_on: dt,
+                value: val,
+                source: 'YouTube Official Channel',
+              })),
+            ],
+          },
+          {
+            id: `${a.id}-ig`,
+            network: 'Instagram',
+            url: `https://www.instagram.com/${a.slug}`,
+            identity_source: 'Perfil oficial verificado',
+            snapshots: [
+              ...series(a.base, a.now, 1.15).map(([dt, val]) => ({
+                metric: 'followers',
+                observed_on: dt,
+                value: val,
+                source: 'Instagram Insights Autorizado',
+              })),
+              ...series(a.base, a.now, 8.2).map(([dt, val]) => ({
+                metric: 'views',
+                observed_on: dt,
+                value: val,
+                source: 'Instagram Insights Autorizado',
+              })),
+              ...series(a.base, a.now, 0.65).map(([dt, val]) => ({
+                metric: 'likes',
+                observed_on: dt,
+                value: val,
+                source: 'Instagram Insights Autorizado',
+              })),
+            ],
+          },
+          {
+            id: `${a.id}-sp`,
+            network: 'Spotify',
+            url: `https://open.spotify.com/artist/${a.slug}`,
+            identity_source: 'Perfil de artista verificado',
+            snapshots: [
+              ...series(a.base, a.now, 0.92).map(([dt, val]) => ({
+                metric: 'monthly_listeners',
+                observed_on: dt,
+                value: val,
+                source: 'Spotify for Artists',
+              })),
+              ...series(a.base, a.now, 0.54).map(([dt, val]) => ({
+                metric: 'followers',
+                observed_on: dt,
+                value: val,
+                source: 'Spotify for Artists',
+              })),
+              ...series(a.base, a.now, 18.0).map(([dt, val]) => ({
+                metric: 'streams',
+                observed_on: dt,
+                value: val,
+                source: 'Spotify for Artists',
+              })),
+            ],
+          },
+          {
+            id: `${a.id}-tk`,
+            network: 'TikTok',
+            url: `https://www.tiktok.com/@${a.slug}`,
+            identity_source: 'Conta oficial verificada',
+            snapshots: [
+              ...series(a.base, a.now, 1.25).map(([dt, val]) => ({
+                metric: 'followers',
+                observed_on: dt,
+                value: val,
+                source: 'TikTok for Artists',
+              })),
+              ...series(a.base, a.now, 21.0).map(([dt, val]) => ({
+                metric: 'views',
+                observed_on: dt,
+                value: val,
+                source: 'TikTok for Artists',
+              })),
+              ...series(a.base, a.now, 1.4).map(([dt, val]) => ({
+                metric: 'likes',
+                observed_on: dt,
+                value: val,
+                source: 'TikTok for Artists',
+              })),
+            ],
+          },
+        ],
+      })),
+    };
+
+    importCommercial(db, batch, { day: d0 });
   }
 
   try {

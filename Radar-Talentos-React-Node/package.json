@@ -28,7 +28,8 @@
     "radar:check": "node --check dashboard/dashboard.js",
     "build:react": "vite build",
     "regional:import": "node --experimental-sqlite scripts/import-regional.mjs",
-    "data:observed": "node --experimental-sqlite scripts/load-observed.mjs"
+    "data:observed": "node --experimental-sqlite scripts/load-observed.mjs",
+    "commercial:import": "node --experimental-sqlite scripts/import-commercial.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

@@ -29,7 +29,7 @@ test('migrações são repetíveis e preservam dados no arquivo', () => {
     snapshot(db);
     db.close();
     db = openDatabase(filename);
-    assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n, 10);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n, 11);
     assert.equal(db.prepare('SELECT count(*) AS n FROM categories').get().n, 8);
     assert.equal(db.prepare('SELECT value FROM metric_snapshots').get().value, 100);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');

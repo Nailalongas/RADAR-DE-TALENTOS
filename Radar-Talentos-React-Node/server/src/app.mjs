@@ -1,3 +1,4 @@
+import {commercialQuery} from './commercial.mjs';
 import {regionalDashboard} from './regional-dashboard.mjs';
 import { operationsStatus, runOperations } from './operations.mjs';
 import { readEventConfig } from './event-config.mjs';
@@ -48,14 +49,14 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         if(!same||req.headers['x-radar-action']!=='sync'){res.writeHead(403).end();return;}if(!database){res.writeHead(503).end();return;}
         if(syncing){res.writeHead(409,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Sincronização já em execução'}));return;}
         let config;try{config=await syncConfig();}catch{res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Configure as fontes antes de sincronizar (config/operations.json)'}));return;}
-        if(!config.jobs.some(j=>j.enabled&&(j.kind==='events'||combinedDashboard&&j.kind==='audience'))){res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Nenhuma fonte de eventos ou audiência habilitada'}));return;}
+        if(!config.jobs.some(j=>j.enabled&&(j.kind==='events'||combinedDashboard&&['audience','metrics'].includes(j.kind)))){res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Nenhuma fonte de eventos, audiência ou oportunidade comercial habilitada'}));return;}
         if(syncing){res.writeHead(409).end();return;}syncing=true;lastSync=null;
         res.writeHead(202,{'Content-Type':'application/json'}).end(JSON.stringify({accepted:true}));
         runOperations(database,config,{...syncOptions,ignoreSchedule:true,inbox:syncOptions.inbox??process.env.RADAR_INBOX??'data/inbox',secretsDir:syncOptions.secretsDir??process.env.RADAR_SECRETS_DIR??'data/secrets'}).then(r=>{lastSync={runs:r};}).catch(()=>{lastSync={error:'Falha operacional; verifique banco e configuração'};}).finally(()=>{syncing=false;});return;
       }
       if (path === '/api/operations/status') {
         if (!database) {res.writeHead(503).end();return;}
-        res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify((()=>{const state=operationsStatus(database);if(eventsOnly){const ids=new Set(state.jobs.filter(j=>(['events','alerts'].includes(j.kind)||combinedDashboard&&j.kind==='audience')).map(j=>j.id));state.jobs=state.jobs.filter(j=>ids.has(j.id));state.history=state.history.filter(j=>ids.has(j.job_id));state.alerts=state.alerts.filter(a=>a.kind==='trend'||a.kind==='collection'&&ids.has(a.subject));}return {...state,syncing,lastSync};})()));return;
+        res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify((()=>{const state=operationsStatus(database);if(eventsOnly){const ids=new Set(state.jobs.filter(j=>(['events','alerts'].includes(j.kind)||combinedDashboard&&['audience','metrics'].includes(j.kind))).map(j=>j.id));state.jobs=state.jobs.filter(j=>ids.has(j.id));state.history=state.history.filter(j=>ids.has(j.job_id));state.alerts=state.alerts.filter(a=>a.kind==='trend'||a.kind==='collection'&&ids.has(a.subject));}return {...state,syncing,lastSync};})()));return;
       }
       if (path === '/api/opportunities') {
         if (!database) { res.writeHead(503).end(); return; }
@@ -66,6 +67,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         if (!database) { res.writeHead(503).end(); return; }
         res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(audienceStatus(database))); return;
       }
+      if(path==='/api/commercial'){if(!database){res.writeHead(503).end();return;}const result=commercialQuery(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path.startsWith('/api/regional/')){if(!database){res.writeHead(503).end();return;}const result=regionalDashboard(database,path,new URL(req.url,'http://localhost').searchParams);if(result!==undefined){res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}}
       if (path.startsWith('/api/radar/') || path.startsWith('/api/events/')) {
         if (!database) { res.writeHead(503).end(); return; }
