@@ -232,6 +232,8 @@ function renderStrategicStrip(d,a){
 
 async function selectArtist(a){
   const id=++detailToken;selectedArtist=a;
+  const compatArtistInput=document.querySelector('#compat-artist');
+  if(compatArtistInput){compatArtistInput.value=a.name;runCompatibilitySimulator(a.id);}
   document.querySelector('#city-scope option[value="artist"]').disabled=false;
   for(const tr of rows.children)tr.setAttribute('aria-selected',String(tr.dataset.artist===a.id));
   loadArtistCards(a,id);
@@ -282,6 +284,11 @@ async function load(){
     p.set('end',d.end);activeParams=p;lastResponse=d;
     kpis(d);loadCities();
     if(form.elements.modality.options.length===1)for(const m of d.modalities){const o=el('option',m.name,form.elements.modality);o.value=m.id;}
+    const artistList=document.querySelector('#compat-artists-list');
+    if(artistList){
+      artistList.replaceChildren();
+      for(const item of d.items){const o=el('option',null,artistList);o.value=item.name;}
+    }
     msg.textContent=d.total?`${d.total} artistas monitorados em ${d.network} (${d.start} a ${d.end}). ${d.comparable} com histórico comparável.`:'Nenhum dado disponível para estes filtros.';
     for(const [idx,a] of d.items.entries()){
       const tr=el('tr',null,rows),td=el('td',null,tr),b=el('button',`${idx+1}. ${a.name}`,td);
@@ -418,4 +425,198 @@ document.querySelector('#city-scope').onchange=loadCities;
 document.querySelector('#city-region').onchange=loadCities;
 form.elements.network.onchange=()=>{updateMetrics();load();};
 form.onsubmit=e=>{e.preventDefault();load();};
-updateMetrics();load();
+
+let compatToken=0;
+const compatForm=document.querySelector('#compatibility-form');
+const compatResult=document.querySelector('#compatibility-result');
+const compatStatus=document.querySelector('#compat-status');
+
+async function loadCitySuggestions(q=''){
+  const list=document.querySelector('#compat-cities-list');
+  if(!list)return;
+  try{
+    const r=await fetch('/api/radar/municipalities?'+new URLSearchParams({q}),{cache:'no-store'});
+    if(!r.ok)return;
+    const d=await r.json();
+    list.replaceChildren();
+    for(const m of (d.items||[]).slice(0,60)){
+      const o=el('option',null,list);
+      o.value=`${m.name} / ${m.uf}`;
+    }
+  }catch{}
+}
+
+async function runCompatibilitySimulator(explicitTalentId=''){
+  if(!compatForm||!compatResult)return;
+  const seq=++compatToken;
+  const artistQ=document.querySelector('#compat-artist')?.value?.trim()||selectedArtist?.name||'';
+  const cityQ=document.querySelector('#compat-city')?.value?.trim()||'Criciúma / SC';
+  const radius=document.querySelector('#compat-radius')?.value??'80';
+  const days=document.querySelector('#compat-days')?.value??'30';
+  if(!artistQ&&!explicitTalentId){
+    if(compatStatus)compatStatus.textContent='Informe ou selecione um artista para simular a compatibilidade com a cidade.';
+    return;
+  }
+  if(compatStatus)compatStatus.textContent=`Calculando compatibilidade comercial de ${artistQ||explicitTalentId} em ${cityQ} (raio ${radius} km)...`;
+  try{
+    const params=new URLSearchParams({cityQuery:cityQ,radius,days});
+    if(explicitTalentId&&(!artistQ||selectedArtist?.name===artistQ))params.set('talent',explicitTalentId);
+    if(artistQ)params.set('q',artistQ);
+    if(activeParams?.get('end'))params.set('end',activeParams.get('end'));
+    const r=await fetch('/api/commercial/compatibility?'+params,{cache:'no-store'});
+    const d=await r.json();
+    if(seq!==compatToken)return;
+    if(!r.ok)throw Error(d.error||'Não foi possível simular a compatibilidade');
+    renderCompatibilityResult(d);
+    if(compatStatus)compatStatus.textContent=`Análise concluída: ${d.artist.name} × ${d.city.name}/${d.city.uf} (bacia regional de ${d.radiusKm} km com ${d.catchment.totalMunicipalities} municípios).`;
+  }catch(e){
+    if(seq===compatToken){
+      compatResult.replaceChildren();
+      if(compatStatus)compatStatus.textContent=e.message;
+    }
+  }
+}
+
+function renderCompatibilityResult(d){
+  compatResult.replaceChildren();
+  const banner=el('div',null,compatResult);
+  banner.className='compat-verdict-banner';
+  banner.dataset.level=d.verdict.level;
+
+  const left=el('div',null,banner);
+  const cats=[...(d.artist.categories||[]),...(d.artist.modalities||[])];
+  el('small',`Simulação de Viabilidade Comercial · ${d.city.name} / ${d.city.uf} (${d.city.region}) · Raio ${d.radiusKm} km`,left);
+  el('h3',`${d.artist.name} em ${d.city.name} / ${d.city.uf} — ${d.verdict.label}`,left);
+  if(cats.length)el('p',`Categorias / Modalidades: ${[...new Set(cats)].join(' · ')}`,left);
+  el('p',d.verdict.recommendation,left);
+
+  const badge=el('div',null,banner);
+  badge.className='compat-score-badge';
+  el('strong',d.score!=null?`${d.score}/100`:'—',badge);
+  el('small','Score Comercial',badge);
+
+  // 7 Variáveis de Decisão para Vendas
+  const varsGrid=el('div',null,compatResult);
+  varsGrid.className='compat-vars-grid';
+  for(const v of d.variables||[]){
+    const vc=el('div',null,varsGrid);
+    vc.className='compat-var-card';
+    const vh=el('div',null,vc);
+    vh.className='compat-var-head';
+    el('span',v.label,vh);
+    el('b',v.score!=null?`${v.score}/100`:'—',vh);
+    const bar=el('div',null,vc);
+    bar.className='compat-var-bar';
+    const fill=el('div',null,bar);
+    fill.className='compat-var-fill';
+    fill.style.width=`${v.score!=null?Math.max(4,v.score):0}%`;
+    el('small',v.summary,vc);
+  }
+
+  // 4 Mídias do Artista na Cidade e na Bacia Regional (Raio)
+  const mediaGrid=el('div',null,compatResult);
+  mediaGrid.className='city-grid';
+  for(const m of d.media||[]){
+    const mc=card(mediaGrid,m.network);
+    const nat=m.national;
+    const ca=m.cityAudience;
+    const ra=m.radiusAudience;
+    el('small',`Nacional · ${labels[m.nationalMetric]??m.nationalMetric}`,mc);
+    el('strong',nat?number(nat.value):'—',mc);
+    if(nat){
+      const np=el('p',`Tração (${d.days}d): ${signed(nat.growth)} (${nat.growth_pct==null?'—':signed(nat.growth_pct)+'%'})`,mc);
+      np.className=nat.growth>0?'positive':nat.growth<0?'negative':'';
+      el('small',nat.freshness_label||nat.source,mc);
+    }
+    el('small',`Na praça: ${d.city.name}/${d.city.uf}`,mc);
+    if(ca?.present){
+      el('p',`${number(ca.value)} (${regionalLabels[ca.metric]??ca.metric}) · #${ca.rank} de ${ca.totalCities} cidades (${ca.sharePct}% da base regional)`,mc);
+      if(ca.growthPct!=null){
+        const cg=el('small',`Crescimento em ${d.city.name}: ${signed(ca.growth)} (${signed(ca.growthPct)}%)`,mc);
+        cg.className=ca.growth>0?'positive':ca.growth<0?'negative':'';
+      }
+    }else{
+      el('small',`Sem observação isolada em ${d.city.name}/${d.city.uf} neste relatório.`,mc);
+    }
+
+    if(ra&&ra.totalValue!=null){
+      el('small',`Bacia no raio de ${d.radiusKm} km (${ra.municipalitiesWithData} de ${ra.totalCatchmentMunicipalities} cidades com dados)`,mc);
+      el('p',`Total regional somado: ${number(ra.totalValue)} (${ra.sharePct??0}% da audiência regional)`,mc);
+      if(ra.cities?.length>1){
+        const chips=el('div',null,mc);
+        chips.className='compat-catchment-chips';
+        for(const c of ra.cities.slice(0,6)){
+          const ch=el('button',`${c.name}/${c.uf}: ${number(c.value)}${c.distance_km>0?` (${c.distance_km}km)`:''}`,chips);
+          ch.type='button';
+          ch.className='compat-city-chip';
+          ch.title=`Simular diretamente em ${c.name}/${c.uf}`;
+          ch.onclick=()=>{
+            document.querySelector('#compat-city').value=`${c.name} / ${c.uf}`;
+            runCompatibilitySimulator(d.artist.id);
+          };
+        }
+      }
+    }
+  }
+
+  // Argumentário Executivo para Vendas
+  if(d.salesPitch?.length){
+    const pitchBox=el('div',null,compatResult);
+    pitchBox.className='compat-pitch-box';
+    const head=el('div',null,pitchBox);
+    head.className='city-header';
+    el('strong',`Argumentário Comercial para Vendas — ${d.artist.name} em ${d.city.name}/${d.city.uf} (+${d.radiusKm} km)`,head);
+    const copyBtn=el('button','Copiar Argumentário para Vendas',head);
+    copyBtn.type='button';
+    copyBtn.onclick=async()=>{
+      const text=[
+        `VIABILIDADE COMERCIAL: ${d.artist.name} em ${d.city.name}/${d.city.uf} (Raio ${d.radiusKm} km)`,
+        `Score de Compatibilidade: ${d.score??'—'}/100 — ${d.verdict.label}`,
+        `Recomendação: ${d.verdict.recommendation}`,
+        ...d.salesPitch.map(line=>`• ${line}`)
+      ].join('\n');
+      try{await navigator.clipboard.writeText(text);copyBtn.textContent='Copiado!';setTimeout(()=>copyBtn.textContent='Copiar Argumentário para Vendas',2000);}catch{}
+    };
+    const ul=el('ul',null,pitchBox);
+    for(const item of d.salesPitch){
+      el('li',item,ul);
+    }
+  }
+}
+
+if(compatForm){
+  compatForm.onsubmit=e=>{e.preventDefault();runCompatibilitySimulator();};
+  const cityInput=document.querySelector('#compat-city');
+  let cityTimer=null;
+  if(cityInput){
+    cityInput.addEventListener('input',()=>{
+      clearTimeout(cityTimer);
+      cityTimer=setTimeout(()=>loadCitySuggestions(cityInput.value),220);
+    });
+  }
+  loadCitySuggestions('');
+}
+
+window.runRadarCompatibility=(artistQuery,cityQuery,radiusKm)=>{
+  const aIn=document.querySelector('#compat-artist');
+  const cIn=document.querySelector('#compat-city');
+  const rIn=document.querySelector('#compat-radius');
+  if(aIn&&artistQuery)aIn.value=artistQuery;
+  if(cIn&&cityQuery)cIn.value=cityQuery;
+  if(rIn&&radiusKm!=null)rIn.value=String(radiusKm);
+  if(artistQuery&&form?.elements?.q){form.elements.q.value=artistQuery;load();}
+  runCompatibilitySimulator();
+  document.querySelector('#compatibility-simulator')?.scrollIntoView({behavior:'smooth'});
+};
+
+const urlParams=new URLSearchParams(location.search);
+if(urlParams.get('q')&&form.elements.q)form.elements.q.value=urlParams.get('q');
+if(urlParams.get('q')&&document.querySelector('#compat-artist'))document.querySelector('#compat-artist').value=urlParams.get('q');
+if(urlParams.get('cityQuery')&&document.querySelector('#compat-city'))document.querySelector('#compat-city').value=urlParams.get('cityQuery');
+if(urlParams.get('radius')&&document.querySelector('#compat-radius'))document.querySelector('#compat-radius').value=urlParams.get('radius');
+
+updateMetrics();load().then(()=>{
+  if(urlParams.get('q')||urlParams.get('cityQuery')||urlParams.get('talent')){
+    runCompatibilitySimulator(urlParams.get('talent')||'');
+  }
+});

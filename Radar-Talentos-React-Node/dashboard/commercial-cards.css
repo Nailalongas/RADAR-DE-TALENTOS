@@ -387,3 +387,240 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Simulador de Compatibilidade Comercial Artista × Cidade */
+.commercial-page .compat-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.commercial-page .search-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 6px;
+  border: 1px solid #3f3f46;
+  background: #141416;
+  color: #e4e4e7;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.commercial-page .search-trigger kbd {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  color: #c084fc;
+}
+
+.commercial-page #compatibility-simulator {
+  border: 1px solid #4c1d95;
+  background: linear-gradient(180deg, rgba(88, 28, 135, 0.14) 0%, #18181b 100%);
+}
+
+.commercial-page .compat-form {
+  display: grid;
+  grid-template-columns: 1.4fr 1.4fr 1fr 0.8fr auto;
+  gap: 8px;
+  align-items: end;
+  margin: 8px 0 10px;
+  padding: 10px;
+  background: #141416;
+  border: 1px solid #303036;
+  border-radius: 8px;
+}
+
+.commercial-page .compat-verdict-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid #3f3f46;
+  background: #131316;
+  margin-bottom: 10px;
+}
+
+.commercial-page .compat-verdict-banner[data-level="high"] {
+  border-color: #22c55e;
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.14), #131316 65%);
+}
+
+.commercial-page .compat-verdict-banner[data-level="good"] {
+  border-color: #a855f7;
+  background: linear-gradient(90deg, rgba(168, 85, 247, 0.16), #131316 65%);
+}
+
+.commercial-page .compat-verdict-banner[data-level="moderate"] {
+  border-color: #eab308;
+  background: linear-gradient(90deg, rgba(234, 179, 8, 0.14), #131316 65%);
+}
+
+.commercial-page .compat-verdict-banner[data-level="low"] {
+  border-color: #ef4444;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.14), #131316 65%);
+}
+
+.commercial-page .compat-score-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 96px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #09090b;
+  border: 1px solid #3f3f46;
+  text-align: center;
+}
+
+.commercial-page .compat-score-badge strong {
+  font-size: 24px;
+  line-height: 1;
+  color: #fafafa;
+  font-variant-numeric: tabular-nums;
+}
+
+.commercial-page .compat-score-badge small {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #a1a1aa;
+  margin-top: 3px;
+}
+
+.commercial-page .compat-vars-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.commercial-page .compat-var-card {
+  background: #141416;
+  border: 1px solid #303036;
+  border-radius: 7px;
+  padding: 8px 10px;
+}
+
+.commercial-page .compat-var-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #e4e4e7;
+}
+
+.commercial-page .compat-var-head b {
+  color: #c084fc;
+  font-variant-numeric: tabular-nums;
+}
+
+.commercial-page .compat-var-bar {
+  height: 5px;
+  border-radius: 3px;
+  background: #27272a;
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.commercial-page .compat-var-fill {
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #7e22ce, #c084fc);
+}
+
+.commercial-page .compat-pitch-box {
+  background: #121215;
+  border: 1px solid #303036;
+  border-left: 3px solid #a855f7;
+  border-radius: 7px;
+  padding: 10px 12px;
+  margin-top: 10px;
+}
+
+.commercial-page .compat-pitch-box ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+  font-size: 11.5px;
+  color: #e4e4e7;
+  display: grid;
+  gap: 4px;
+}
+
+.commercial-page .compat-catchment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 6px;
+}
+
+.commercial-page .compat-city-chip {
+  font-size: 10.5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #201a2c;
+  border: 1px solid #4c1d95;
+  color: #e9d5ff;
+  cursor: pointer;
+}
+
+.commercial-page dialog.palette {
+  width: min(640px, 94vw);
+  border: 1px solid #3f3f46;
+  border-radius: 10px;
+  background: #18181b;
+  color: #fafafa;
+  padding: 14px;
+}
+
+.commercial-page dialog.palette::backdrop {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+.commercial-page .palette-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.commercial-page .palette-results {
+  display: grid;
+  gap: 4px;
+  max-height: 320px;
+  overflow: auto;
+  margin-top: 8px;
+}
+
+.commercial-page .palette-results button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  text-align: left;
+  background: #141416;
+  border: 1px solid #27272a;
+  padding: 7px 10px;
+  height: auto;
+}
+
+.commercial-page .palette-results button:hover {
+  border-color: #a855f7;
+  background: #221633;
+}
+
+@media (max-width: 1050px) {
+  .commercial-page .compat-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}

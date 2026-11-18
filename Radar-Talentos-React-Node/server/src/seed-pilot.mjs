@@ -168,6 +168,14 @@ export function seedPilotDatabaseIfEmpty(db) {
     }
   }
 
+  const isLegacyPilot = Boolean(
+    db.prepare("SELECT 1 FROM talents WHERE id = 't-alok'").get() &&
+    !db.prepare("SELECT 1 FROM talents WHERE id = 't-claudio-duarte'").get()
+  );
+  if (isLegacyPilot) {
+    db.exec('DELETE FROM regional_audience; DELETE FROM regional_report_authorizations; DELETE FROM commercial_snapshots; DELETE FROM commercial_accounts;');
+  }
+
   const audienceCount = db.prepare('SELECT count(*) AS n FROM regional_audience').get().n;
   if (audienceCount === 0) {
     const shiftDay = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
@@ -191,6 +199,7 @@ export function seedPilotDatabaseIfEmpty(db) {
       { id: 't-jonathan-nemer', name: 'Jonathan Nemer', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
       { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
       { id: 't-cortella', name: 'Mario Sergio Cortella', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
+      { id: 't-claudio-duarte', name: 'Pastor Cláudio Duarte', mod: 'palestras', subName: 'Desenvolvimento pessoal', catName: 'Palestrantes' },
       { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
       { id: 't-mundo-bita', name: 'Mundo Bita', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
       { id: 't-cirque-soleil', name: 'Cirque du Soleil', mod: 'teatro', subName: 'Circo', catName: 'Peças de teatro e musicais' },
@@ -248,6 +257,12 @@ export function seedPilotDatabaseIfEmpty(db) {
       ['4209102', 72300],  // Joinville - SC (Sul)
       ['4205407', 81500],  // Florianópolis - SC (Sul)
       ['4202404', 44900],  // Blumenau - SC (Sul)
+      ['4204608', 68400],  // Criciúma - SC (Sul)
+      ['4218707', 31200],  // Tubarão - SC (Sul)
+      ['4201406', 24800],  // Araranguá - SC (Sul)
+      ['4207007', 21400],  // Içara - SC (Sul)
+      ['4205456', 14200],  // Forquilhinha - SC (Sul)
+      ['4219002', 11800],  // Urussanga - SC (Sul)
       ['4314902', 128000], // Porto Alegre - RS (Sul)
       ['4305108', 42000],  // Caxias do Sul - RS (Sul)
       ['2927408', 136000], // Salvador - BA (Nordeste)
@@ -276,6 +291,7 @@ export function seedPilotDatabaseIfEmpty(db) {
       ['t-mundo-bita', 0.84, 0.70],
       ['t-leandro-karnal', 0.68, 0.68],
       ['t-cortella', 0.74, 0.72],
+      ['t-claudio-duarte', 1.38, 0.69],
       ['t-walmir-alencar', 0.32, 0.56],
       ['t-abner-dantas', 0.22, 0.46],
       ['t-cirque-soleil', 0.92, 0.66],
@@ -400,6 +416,7 @@ export function seedPilotDatabaseIfEmpty(db) {
       { id: 't-alok', name: 'Alok', modalities: ['shows'], base: 1200000, now: 1380000, slug: 'alok' },
       { id: 't-leandro-karnal', name: 'Leandro Karnal', modalities: ['palestras'], base: 5400, now: 9200, slug: 'leandrokarnal' },
       { id: 't-cortella', name: 'Mario Sergio Cortella', modalities: ['palestras'], base: 185000, now: 242000, slug: 'cortella' },
+      { id: 't-claudio-duarte', name: 'Pastor Cláudio Duarte', modalities: ['palestras', 'humor'], base: 680000, now: 940000, slug: 'claudioduarte' },
       { id: 't-palavra-cantada', name: 'Palavra Cantada', modalities: ['infantil'], base: 28000, now: 41500, slug: 'palavracantada' },
       { id: 't-mundo-bita', name: 'Mundo Bita', modalities: ['infantil'], base: 140000, now: 196000, slug: 'mundobita' },
       { id: 't-cirque-soleil', name: 'Cirque du Soleil', modalities: ['teatro'], base: 95000, now: 148000, slug: 'cirquedusoleil' },
@@ -550,6 +567,48 @@ export function seedPilotDatabaseIfEmpty(db) {
     };
 
     importCommercial(db, batch, { day: d0 });
+  }
+
+  // Sincroniza contas comerciais confirmadas (YouTube, Instagram, Spotify) para social_accounts e metric_snapshots se estiverem vazias
+  const socialCount = db.prepare('SELECT count(*) AS n FROM social_accounts').get().n;
+  if (socialCount === 0) {
+    const commAccounts = db.prepare(
+      `SELECT id, talent_id, network, url, identity_source
+       FROM commercial_accounts
+       WHERE network IN ('YouTube', 'Instagram', 'Spotify')`
+    ).all();
+    if (commAccounts.length > 0) {
+      const nowIso = new Date().toISOString();
+      const insAcc = db.prepare(
+        `INSERT OR IGNORE INTO social_accounts(
+           id, talent_id, network, external_id, url, identity_confirmed, identity_source, collection_state
+         ) VALUES (?, ?, ?, ?, ?, 1, ?, 'collected')`
+      );
+      const insSnap = db.prepare(
+        `INSERT OR IGNORE INTO metric_snapshots(
+           account_id, network, metric, observed_on, value, source, collected_at
+         ) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      );
+      const primaryMetric = { YouTube: 'subscribers', Instagram: 'followers', Spotify: 'monthly_listeners' };
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        for (const acc of commAccounts) {
+          const extId = acc.url.split('/').filter(Boolean).at(-1)?.replace(/^@/, '') || acc.id;
+          insAcc.run(acc.id, acc.talent_id, acc.network, extId, acc.url, acc.identity_source);
+          const metric = primaryMetric[acc.network];
+          const snaps = db.prepare(
+            'SELECT observed_on, value, source FROM commercial_snapshots WHERE account_id = ? AND metric = ? ORDER BY observed_on ASC'
+          ).all(acc.id, metric);
+          for (const s of snaps) {
+            insSnap.run(acc.id, acc.network, metric, s.observed_on, s.value, s.source, nowIso);
+          }
+        }
+        db.exec('COMMIT');
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
+    }
   }
 
   try {

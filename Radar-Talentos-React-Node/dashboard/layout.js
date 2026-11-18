@@ -209,15 +209,45 @@
 (()=>{
  const toggle=document.getElementById('sidebar-toggle');
  if(toggle){toggle.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));document.querySelectorAll('.sidebar nav a,.sidebar nav button').forEach(el=>el.addEventListener('click',()=>document.body.classList.remove('sidebar-open')));}
- const dialog=document.getElementById('command-palette'),input=document.getElementById('global-search'),results=document.getElementById('search-results'),trigger=document.getElementById('open-search'),form=document.getElementById('filters');
+ const dialog=document.getElementById('command-palette'),input=document.getElementById('global-search'),results=document.getElementById('search-results'),trigger=document.getElementById('open-search'),form=document.getElementById('filters')||document.getElementById('commercial-filters');
  if(!dialog||!input||!results||!trigger||!form)return;
  const normalize=s=>s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
  function open(){if(!dialog.open){dialog.showModal();input.value='';render();input.focus()}}
- function render(){const q=normalize(input.value),entries=[];
+ function parseArtistCity(raw){
+  const m=String(raw||'').trim().match(/^(.+?)\s+(?:em|x|×)\s+(.+)$/i);
+  if(m)return {artist:m[1].trim(),city:m[2].trim()};
+  return {artist:String(raw||'').trim(),city:document.getElementById('compat-city')?.value?.trim()||'Criciúma / SC'};
+ }
+ function goCompatibility(artist,city){
+  if(typeof window.runRadarCompatibility==='function'){
+   window.runRadarCompatibility(artist,city,80);
+  }else{
+   const p=new URLSearchParams({q:artist,cityQuery:city,radius:'80'});
+   location.href='/commercial.html?'+p.toString()+'#compatibility-simulator';
+  }
+ }
+ function render(){const q=normalize(input.value),entries=[],priority=[];
+ if(q){
+  const {artist,city}=parseArtistCity(input.value);
+  if(artist){
+   priority.push({
+    label:`⚡ Simular Compatibilidade Comercial: ${artist} em ${city}`,
+    kind:'Viabilidade para Vendas · 4 Mídias + 7 Variáveis',
+    run:()=>goCompatibility(artist,city)
+   });
+   priority.push({
+    label:`↗ Abrir Ficha & 4 Mídias: ${artist}`,
+    kind:'Oportunidade Comercial',
+    run:()=>goCompatibility(artist,city)
+   });
+  }
+ }
  for(const a of document.querySelectorAll('.sidebar nav a'))entries.push({label:a.textContent.trim(),kind:'Navegação',run:()=>{location.href=a.href}});
+ for(const opt of document.querySelectorAll('#compat-artists-list option')){if(opt.value)entries.push({label:`${opt.value} — Simular em Criciúma / SC`,kind:'Compatibilidade Artista × Cidade',run:()=>goCompatibility(opt.value,'Criciúma / SC')});}
  for(const [name,kind] of [['category','Categoria'],['talent','Artista'],['modality','Modalidade'],['submodality','Submodalidade'],['network','Mídia'],['region','Região'],['uf','Estado'],['city','Município'],['platform','Plataforma']]){const select=form.elements.namedItem(name);if(!(select instanceof HTMLSelectElement))continue;for(const option of [...select.options].slice(0,250)){if(!option.value)continue;entries.push({label:option.textContent,kind,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}})}}
- if(q&&form.elements.namedItem('artist'))entries.unshift({label:'Filtrar artista: '+input.value,kind:'Pesquisa de talento',run:()=>{form.elements.namedItem('artist').value=input.value.trim();const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}});
- results.replaceChildren();for(const entry of entries.filter(e=>!q||normalize(e.label+' '+e.kind).includes(q)).slice(0,30)){const b=document.createElement('button');b.type='button';b.textContent=entry.label;const small=document.createElement('small');small.textContent=entry.kind;b.append(small);b.addEventListener('click',()=>{dialog.close();entry.run()});results.append(b)}if(!results.children.length){const p=document.createElement('p');p.textContent='Nenhum resultado nos dados carregados.';results.append(p)}}
+ if(q&&form.elements.namedItem('artist'))priority.push({label:'Filtrar artista: '+input.value,kind:'Pesquisa de talento',run:()=>{form.elements.namedItem('artist').value=input.value.trim();const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}});
+ const filtered=[...priority,...entries.filter(e=>!q||normalize(e.label+' '+e.kind).includes(q))].slice(0,30);
+ results.replaceChildren();for(const entry of filtered){const b=document.createElement('button');b.type='button';b.textContent=entry.label;const small=document.createElement('small');small.textContent=entry.kind;b.append(small);b.addEventListener('click',()=>{dialog.close();entry.run()});results.append(b)}if(!results.children.length){const p=document.createElement('p');p.textContent='Nenhum resultado nos dados carregados.';results.append(p)}}
  trigger.addEventListener('click',open);document.getElementById('close-search').addEventListener('click',()=>dialog.close());input.addEventListener('input',render);input.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();results.querySelector('button')?.focus()}});document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();dialog.open?dialog.close():open()}});
  const network=form.elements.namedItem('network');if(network){const urlNet=new URLSearchParams(location.search).get('network');if(urlNet&&[...network.options].some(o=>o.value===urlNet))network.value=urlNet;const buttons=document.querySelectorAll('[data-network]');const update=()=>buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.network===network.value)));buttons.forEach(b=>b.addEventListener('click',()=>{if(network.value!==b.dataset.network){network.value=b.dataset.network;network.dispatchEvent(new Event('change',{bubbles:true}))}}));network.addEventListener('change',update);update()}
 })();
