@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { importEvents } from './events.mjs';
-import { importCoverage } from './opportunities.mjs';
+import { importRegionalReport } from './regional-dashboard.mjs';
 
 const UF_REGIONS = {
   AC: 'Norte',
@@ -118,7 +118,7 @@ export function seedPilotDatabaseIfEmpty(db) {
         lat,
         lon,
         'Base Nacional de Localidades',
-        'Localidades: 2026-11-17; malhas: 2025',
+        'Localidades: 2026-11-18; malhas: 2025',
         'Malha Territorial — centro da caixa envolvente (aproximado)',
         '2025'
       );
@@ -134,14 +134,97 @@ export function seedPilotDatabaseIfEmpty(db) {
     ).run(
       'states',
       JSON.stringify(rawStates),
-      'Localidades: 2026-11-17; malhas: 2025',
+      'Localidades: 2026-11-18; malhas: 2025',
       'Malha Territorial'
     );
+
+    const pilotTalents = [
+      { id: 't-natiruts', name: 'Natiruts', mod: 'shows', subName: 'MPB' },
+      { id: 't-alok', name: 'Alok', mod: 'shows', subName: 'Eletrônico' },
+      { id: 't-thiaguinho', name: 'Thiaguinho', mod: 'shows', subName: 'Pagode' },
+      { id: 't-afonso-padilha', name: 'Afonso Padilha', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança' },
+      { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos' },
+    ];
+
+    for (const t of pilotTalents) {
+      db.prepare('INSERT OR IGNORE INTO talents(id, name, entity_type) VALUES (?, ?, ?)').run(t.id, t.name, 'person');
+      db.prepare('INSERT OR IGNORE INTO talent_modalities(talent_id, modality_id) VALUES (?, ?)').run(t.id, t.mod);
+      const subRow = db.prepare('SELECT id FROM submodalities WHERE modality_id = ? AND name = ?').get(t.mod, t.subName);
+      if (subRow) {
+        db.prepare('INSERT OR IGNORE INTO talent_submodalities(talent_id, modality_id, submodality_id) VALUES (?, ?, ?)').run(t.id, t.mod, subRow.id);
+      }
+    }
 
     db.exec('COMMIT');
   } catch (err) {
     db.exec('ROLLBACK');
     throw err;
+  }
+
+  // Seed regional audience reports for YouTube, Instagram, Spotify, and TikTok across all 5 Brazilian regions
+  const regionalCities = [
+    ['3550308', 485000], // São Paulo - SP (Sudeste)
+    ['3509502', 89000],  // Campinas - SP (Sudeste)
+    ['3304557', 265000], // Rio de Janeiro - RJ (Sudeste)
+    ['3106200', 174000], // Belo Horizonte - MG (Sudeste)
+    ['4106902', 142000], // Curitiba - PR (Sul)
+    ['4113700', 54000],  // Londrina - PR (Sul)
+    ['4115200', 46500],  // Maringá - PR (Sul)
+    ['4119905', 31200],  // Ponta Grossa - PR (Sul)
+    ['4209102', 62300],  // Joinville - SC (Sul)
+    ['4205407', 71500],  // Florianópolis - SC (Sul)
+    ['4202404', 38900],  // Blumenau - SC (Sul)
+    ['4314902', 118000], // Porto Alegre - RS (Sul)
+    ['2927408', 136000], // Salvador - BA (Nordeste)
+    ['2611606', 98000],  // Recife - PE (Nordeste)
+    ['2304400', 112000], // Fortaleza - CE (Nordeste)
+    ['5300108', 125000], // Brasília - DF (Centro-Oeste)
+    ['5208707', 82000],  // Goiânia - GO (Centro-Oeste)
+    ['1302603', 64000],  // Manaus - AM (Norte)
+    ['1501402', 58000],  // Belém - PA (Norte)
+  ];
+
+  const talentMultipliers = [
+    ['t-alok', 1.45],
+    ['t-natiruts', 1.0],
+    ['t-thiaguinho', 1.2],
+    ['t-afonso-padilha', 0.95],
+    ['t-leandro-karnal', 0.65],
+    ['t-palavra-cantada', 0.75],
+  ];
+
+  const mediaConfigs = [
+    { network: 'YouTube', metric: 'views', source: 'YouTube Analytics', quality: 'verified', factor: 1.0 },
+    { network: 'Instagram', metric: 'views', source: 'Instagram Insights', quality: 'verified', factor: 1.3 },
+    { network: 'Instagram', metric: 'reach', source: 'Instagram Insights', quality: 'verified', factor: 0.9 },
+    { network: 'Instagram', metric: 'followers', source: 'Instagram Insights', quality: 'verified', factor: 0.4 },
+    { network: 'Spotify', metric: 'streams', source: 'Spotify for Artists', quality: 'verified', factor: 1.6 },
+    { network: 'Spotify', metric: 'listeners', source: 'Spotify for Artists', quality: 'verified', factor: 0.55 },
+    { network: 'TikTok', metric: 'views', source: 'TikTok for Artists', quality: 'verified', factor: 1.85 },
+    { network: 'TikTok', metric: 'reach', source: 'TikTok for Artists', quality: 'verified', factor: 1.15 },
+    { network: 'TikTok', metric: 'followers', source: 'TikTok for Artists', quality: 'verified', factor: 0.45 },
+  ];
+
+  for (const cfg of mediaConfigs) {
+    for (const [talentId, mult] of talentMultipliers) {
+      importRegionalReport(db, {
+        talent_id: talentId,
+        network: cfg.network,
+        metric: cfg.metric,
+        period_start: '2026-10-18',
+        period_end: '2026-11-17',
+        source: cfg.source,
+        quality: cfg.quality,
+        report_ref: `relatorio-${cfg.network.toLowerCase()}-${cfg.metric}-2026-11`,
+        authorization_ref: 'Relatório oficial autorizado',
+        coverage: 'complete',
+        rows: regionalCities.map(([code, base], idx) => ({
+          municipality_code: code,
+          value: Math.max(100, Math.round(base * mult * cfg.factor * (1 + ((idx % 3) - 1) * 0.08))),
+        })),
+      });
+    }
   }
 
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -209,6 +292,17 @@ export function seedPilotDatabaseIfEmpty(db) {
           modality_id: 'shows',
           artists: [{ name: 'Alok', id: 'tm-art-alok' }],
           url: 'https://www.ticketmaster.com.br/event/alok-bh',
+        },
+        {
+          external_id: 'tm-bsb-alok',
+          title: 'Show Alok Aurea Tour Brasília',
+          venue: 'Arena BRB Mané Garrincha',
+          municipality_code: '5300108',
+          event_date: '2026-12-28',
+          published_on: todayStr,
+          modality_id: 'shows',
+          artists: [{ name: 'Alok', id: 'tm-art-alok' }],
+          url: 'https://www.ticketmaster.com.br/event/alok-bsb',
         },
       ],
     },
@@ -298,6 +392,16 @@ export function seedPilotDatabaseIfEmpty(db) {
           modality_id: 'corridas',
           url: 'https://www.ticketsports.com.br/e/trail-florianopolis',
         },
+        {
+          external_id: 'tsp-for-corrida',
+          title: 'Corrida de Rua Beira Mar 10km Fortaleza',
+          venue: 'Avenida Beira Mar',
+          municipality_code: '2304400',
+          event_date: '2026-12-14',
+          published_on: todayStr,
+          modality_id: 'corridas',
+          url: 'https://www.ticketsports.com.br/e/corrida-fortaleza',
+        },
       ],
     },
     {
@@ -326,6 +430,17 @@ export function seedPilotDatabaseIfEmpty(db) {
           modality_id: 'palestras',
           artists: ['Leandro Karnal'],
           url: 'https://www.sympla.com.br/evento/karnal-curitiba',
+        },
+        {
+          external_id: 'sym-rec-karnal',
+          title: 'Palestra Leandro Karnal Liderança em Recife',
+          venue: 'Teatro Guararapes',
+          municipality_code: '2611606',
+          event_date: '2026-12-10',
+          published_on: todayStr,
+          modality_id: 'palestras',
+          artists: ['Leandro Karnal'],
+          url: 'https://www.sympla.com.br/evento/karnal-recife',
         },
       ],
     },
@@ -356,6 +471,17 @@ export function seedPilotDatabaseIfEmpty(db) {
           artists: ['Thiaguinho'],
           url: 'https://www.ingresse.com/tardezinha-fln',
         },
+        {
+          external_id: 'ing-ssa-thiaguinho',
+          title: 'Show Thiaguinho Tardezinha Salvador',
+          venue: 'Arena Fonte Nova',
+          municipality_code: '2927408',
+          event_date: '2026-12-21',
+          published_on: todayStr,
+          modality_id: 'shows',
+          artists: ['Thiaguinho'],
+          url: 'https://www.ingresse.com/tardezinha-ssa',
+        },
       ],
     },
     {
@@ -373,6 +499,17 @@ export function seedPilotDatabaseIfEmpty(db) {
           modality_id: 'infantil',
           artists: ['Palavra Cantada'],
           url: 'https://uhuu.com/evento/palavra-cantada-sp',
+        },
+        {
+          external_id: 'uhuu-man-teatro',
+          title: 'Musical no Teatro Amazonas em Manaus',
+          venue: 'Teatro Amazonas',
+          municipality_code: '1302603',
+          event_date: '2026-12-08',
+          published_on: todayStr,
+          modality_id: 'teatro',
+          artists: ['Palavra Cantada'],
+          url: 'https://uhuu.com/evento/teatro-amazonas',
         },
       ],
     },

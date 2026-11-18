@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { openDatabase, databasePath } from '../server/src/database/index.mjs';
 import { seedPilotDatabaseIfEmpty } from '../server/src/seed-pilot.mjs';
 import { createRadarServer } from '../server/src/app.mjs';
+import { readDashboardConfig } from '../server/src/event-config.mjs';
 
 let sharedServerPromise = null;
 
@@ -13,10 +14,15 @@ function getServerlessServer() {
       const defaultPath = databasePath();
       const targetPath = existsSync(defaultPath)
         ? defaultPath
-        : join(tmpdir(), 'radar-vercel-eventos.sqlite');
+        : join(tmpdir(), 'radar-vercel-dashboards.sqlite');
       const db = openDatabase(targetPath);
       seedPilotDatabaseIfEmpty(db);
-      return createRadarServer({ database: db, eventsOnly: true });
+      return createRadarServer({
+        database: db,
+        eventsOnly: true,
+        combinedDashboard: true,
+        syncConfig: readDashboardConfig,
+      });
     });
   }
   return sharedServerPromise;

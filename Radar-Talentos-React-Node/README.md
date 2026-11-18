@@ -44,3 +44,7 @@ Em outro terminal com o mesmo diretório, banco, configuração e variáveis de 
 ## Documentação atual
 
 Leia **[docs/radar-eventos-operacional.md](docs/radar-eventos-operacional.md)** antes de ativar outras integrações. Os documentos das fases 1–6 são históricos e podem descrever funcionalidades que deixaram de ser prioridades. Antes de migrar uma instalação existente, faça backup de `data/radar.sqlite` e preserve a configuração e as credenciais autorizadas. A migração 009 não apaga históricos.
+
+## Dashboard atual
+
+Consulte [Radar de audiência e tendências](docs/radar-audiencia-e-tendencias.md): audiência por mídia e região em `/audience.html`, oferta das ticketeiras em `/`.

@@ -1,3 +1,4 @@
+import {importRegionalReport} from './regional-dashboard.mjs';
 import {importNationalMetrics} from './registry.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {importEvents} from './events.mjs';
@@ -15,12 +16,13 @@ export function validateConfig(c){
  for(const j of c.jobs){if(!safeId(j.id)||seen.has(j.id)||typeof j.enabled!=='boolean'||!['events','audience','metrics','alerts'].includes(j.kind))throw Error('Job inválido');seen.add(j.id);
   if(j.runAfter!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(j.runAfter)||j.maxAttempts!==undefined&&(!Number.isInteger(j.maxAttempts)||j.maxAttempts<1||j.maxAttempts>6)||j.retryMinutes!==undefined&&(!Number.isInteger(j.retryMinutes)||j.retryMinutes<15||j.retryMinutes>360))throw Error('Agendamento inválido');
   if(j.scope!==undefined&&(typeof j.scope!=='string'||j.scope.length>300))throw Error('Escopo inválido');
-  if(j.kind==='events'&&!platforms.includes(j.provider)||['audience','metrics'].includes(j.kind)&&!['YouTube','Instagram','Spotify'].includes(j.provider)||j.kind==='alerts'&&j.provider!=='radar')throw Error('Provedor inválido');
+  if(j.kind==='events'&&!platforms.includes(j.provider)||j.kind==='audience'&&!['YouTube','Instagram','Spotify','TikTok'].includes(j.provider)||j.kind==='metrics'&&!['YouTube','Instagram','Spotify'].includes(j.provider)||j.kind==='alerts'&&j.provider!=='radar')throw Error('Provedor inválido');
   if(j.kind==='alerts'){if(j.adapter!=='internal'||!Array.isArray(j.queries??[])||(j.queries??[]).length>30||(j.queries??[]).some(q=>!q||typeof q!=='object'||Array.isArray(q)||Object.values(q).some(v=>typeof v!=='string'||v.length>500)))throw Error('Consultas de alerta inválidas');continue;}
   if(!['file','https','ticketmaster','sympla','ingresse','youtube'].includes(j.adapter)||j.adapter==='ticketmaster'&&(j.kind!=='events'||j.provider!=='ticketmaster')||j.adapter==='sympla'&&(j.kind!=='events'||j.provider!=='sympla')||j.adapter==='ingresse'&&(j.kind!=='events'||j.provider!=='ingresse')||j.adapter==='youtube'&&(j.kind!=='audience'||j.provider!=='YouTube'))throw Error('Adaptador inválido');
   if(j.enabled){
    if(typeof j.authorizationRef!=='string'||!j.authorizationRef.trim()||j.authorizationRef.length>300)throw Error('Referência de autorização obrigatória');
-   if(['audience','metrics'].includes(j.kind)&&(typeof j.accountId!=='string'||!j.accountId.trim()))throw Error('Conta obrigatória');
+   if(['audience','metrics'].includes(j.kind)&&j.provider!=='TikTok'&&(typeof j.accountId!=='string'||!j.accountId.trim()))throw Error('Conta obrigatória');
+   if(j.kind==='audience'&&j.provider==='TikTok'&&(!['file','https'].includes(j.adapter)||typeof j.talentId!=='string'||!j.talentId.trim()))throw Error('Talento e feed autorizados obrigatórios para TikTok');
    if(['file','https'].includes(j.adapter)&&(typeof j.scope!=='string'||!j.scope.trim()))throw Error('Declare o escopo autorizado da fonte');
    if(j.adapter==='file'&&(typeof j.file!=='string'||!j.file.trim()))throw Error('Arquivo obrigatório');
    if(j.adapter==='https'){const u=new URL(j.url);if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash||!(c.allowedHosts??[]).includes(u.hostname))throw Error('Feed HTTPS não autorizado');}
@@ -77,9 +79,9 @@ export async function runOperations(db,config,options={}){
    let report;if(j.adapter==='youtube'){
     const a=db.prepare("SELECT external_id FROM social_accounts WHERE id=? AND network='YouTube' AND identity_confirmed=1").get(j.accountId);if(!a?.external_id)throw Error('Conta YouTube não confirmada');const end=shift(day,-3),start=shift(end,-29);const rows=await fetchYouTubeReport({channel:a.external_id,token:await youtubeToken(j,ctx),start,end,fetcher:ctx.fetcher});report={account_id:j.accountId,network:'YouTube',metric:'views',quality:'verified',period_start:start,period_end:end,report_ref:`youtube:${j.accountId}:${start}:${end}`,coverage:'partial',rows};
    }else report=await loadFeed(j,ctx);
-   if(report.network!==j.provider||report.account_id!==j.accountId||!Array.isArray(report.rows)||report.rows.length>50000||report.period_end>day)throw Error('Relatório incompatível');
+   if(report.network!==j.provider||(j.provider==='TikTok'?report.talent_id!==j.talentId:report.account_id!==j.accountId)||!Array.isArray(report.rows)||report.rows.length>50000||report.period_end>day)throw Error('Relatório incompatível');
    fingerprint=hash(report);const previous=db.prepare("SELECT 1 FROM operation_runs WHERE job_id=? AND config_hash=? AND fingerprint=? AND state IN ('success','partial','unchanged')").get(j.id,hash(j),fingerprint);
-   assertLease(db,id);if(previous){state='unchanged';summary='Relatório já importado';}else{const imported=importAudience(db,{...report,authorization_ref:j.authorizationRef});state=imported.status;records=imported.imported;summary=`${records} municípios; ${imported.unresolved.length} não resolvidos`;}
+   assertLease(db,id);if(previous){state='unchanged';summary='Relatório já importado';}else{const imported=j.provider==='TikTok'?importRegionalReport(db,{...report,authorization_ref:j.authorizationRef}):importAudience(db,{...report,authorization_ref:j.authorizationRef});state=imported.status??'partial';records=imported.imported;summary=`${records} municípios; ${imported.unresolved?.length??0} não resolvidos`;}
   }
   if(!['events','metrics'].includes(j.kind))finish(db,id,state,records,summary,fingerprint);result.push({job:j.id,state,records});
  }catch(error){ // Never expose tokens, upstream URL, personal data or raw exception strings in the dashboard.

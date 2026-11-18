@@ -142,6 +142,63 @@
       "enabled": true,
       "queries": [],
       "runAfter": "10:00"
+    },
+    {
+      "id": "youtube-regional",
+      "kind": "audience",
+      "provider": "YouTube",
+      "adapter": "file",
+      "enabled": false,
+      "file": "youtube-regional.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00",
+      "retryMinutes": 60,
+      "maxAttempts": 3,
+      "accountId": ""
+    },
+    {
+      "id": "instagram-regional",
+      "kind": "audience",
+      "provider": "Instagram",
+      "adapter": "file",
+      "enabled": false,
+      "file": "instagram-regional.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00",
+      "retryMinutes": 60,
+      "maxAttempts": 3,
+      "accountId": ""
+    },
+    {
+      "id": "spotify-regional",
+      "kind": "audience",
+      "provider": "Spotify",
+      "adapter": "file",
+      "enabled": false,
+      "file": "spotify-regional.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00",
+      "retryMinutes": 60,
+      "maxAttempts": 3,
+      "accountId": ""
+    },
+    {
+      "id": "tiktok-regional",
+      "kind": "audience",
+      "provider": "TikTok",
+      "adapter": "file",
+      "enabled": false,
+      "file": "tiktok-regional.json",
+      "authorizationRef": "",
+      "scope": "",
+      "runAfter": "08:00",
+      "retryMinutes": 60,
+      "maxAttempts": 3,
+      "talentId": ""
     }
-  ]
+  ],
+  "enableRegionalAudience": true
 }
