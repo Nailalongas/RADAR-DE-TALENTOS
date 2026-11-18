@@ -8,8 +8,8 @@ async function get(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)t
 function options(select,rows,blank){const old=select.value;select.replaceChildren(new Option(blank,''),...rows.map(r=>new Option(r.name,r.id)));if([...select.options].some(o=>o.value===old))select.value=old}
 function table(id,headers,rows){const target=$(id);if(!target)return;if(!rows.length){target.replaceChildren(el('p','Nenhum registro neste recorte.'));return}const t=el('table'),head=el('thead'),tr=el('tr');headers.forEach(h=>tr.append(el('th',h)));head.append(tr);t.append(head);const body=el('tbody');for(const row of rows){const tr=el('tr');for(const v of row){const td=el('td');td.append(v instanceof Node?v:document.createTextNode(String(v??'—')));tr.append(td)}body.append(tr)}t.append(body);target.replaceChildren(t)}
 
-const regionColors={Sudeste:'#42c7b5',Sul:'#45a5dd',Nordeste:'#c69ee9','Centro-Oeste':'#e8b65b',Norte:'#7d9cb8'};
-function bars(id,rows,{showPct=false,colorMap=null,barColor='#45c6b1'}={}){
+const regionColors={Sudeste:'#a855f7',Sul:'#c084fc',Nordeste:'#22c55e','Centro-Oeste':'#eab308',Norte:'#38bdf8'};
+function bars(id,rows,{showPct=false,colorMap=null,barColor='#a855f7'}={}){
   const target=$(id);if(!target)return;target.replaceChildren();
   if(!rows.length){target.append(el('p','Sem registros.'));return;}
   const max=Math.max(1,...rows.map(r=>r.value)),sum=rows.reduce((a,b)=>a+b.value,0);
@@ -26,7 +26,7 @@ function bars(id,rows,{showPct=false,colorMap=null,barColor='#45c6b1'}={}){
   }
 }
 
-let geo=null,mods=[],request=0,offset=0,total=0,lastResult=null,zoomLevel=1;
+let geo=null,mods=[],platformsList=[],request=0,offset=0,total=0,lastResult=null,zoomLevel=1;
 const regions=['Norte','Nordeste','Centro-Oeste','Sudeste','Sul'];
 options(field('region'),regions.map(name=>({name,id:name})),'Brasil inteiro');
 options(field('uf'),'AC AL AP AM BA CE DF ES GO MA MT MS MG PA PB PR PE PI RJ RN RS RO RR SC SP SE TO'.split(' ').map(name=>({name,id:name})),'Todos');
@@ -62,7 +62,7 @@ function map(r){
   for(const f of geo?.states?.features??[]){
     const polys=f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates;
     const d=polys.flatMap(poly=>poly.map(ring=>ring.map((p,i)=>(i?'L':'M')+project(p).join(' ')).join(' ')+'Z')).join(' '),uf=f.properties.uf,v=values.get(uf);
-    const p=svg('path',{d,fill:v?`rgba(37,198,179,${0.18+0.55*v/max})`:'#233e3c',stroke:'#75928a','stroke-width':'1','fill-rule':'evenodd'});
+    const p=svg('path',{d,fill:v?`rgba(168,85,247,${0.18+0.55*v/max})`:'#18181b',stroke:'#3f3f46','stroke-width':'1','fill-rule':'evenodd'});
     const title=svg('title');title.textContent=`${uf}: ${fmt(v??0)} eventos`;p.append(title);
     p.addEventListener('click',()=>{field('uf').value=field('uf').value===uf?'':uf;search()});
     s.append(p);
@@ -73,7 +73,7 @@ function map(r){
       const t=i/96*2*Math.PI,lat=Math.asin(Math.sin(a)*Math.cos(d)+Math.cos(a)*Math.sin(d)*Math.cos(t)),lon=b+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(a),Math.cos(d)-Math.sin(a)*Math.sin(lat));
       return project([lon*180/Math.PI,lat*180/Math.PI]).join(',');
     }).join(' ');
-    s.append(svg('polygon',{points,fill:'#50c7df','fill-opacity':'0.10',stroke:'#5ac9ed','stroke-width':'1.6','stroke-dasharray':'5 3'}));
+    s.append(svg('polygon',{points,fill:'#a855f7','fill-opacity':'0.12',stroke:'#c084fc','stroke-width':'1.8','stroke-dasharray':'5 3'}));
   }
   const maxCity=Math.max(1,...r.places.map(p=>p.value));
   const topCities=new Set(r.places.slice(0,8).map(p=>p.code));
@@ -82,13 +82,13 @@ function map(r){
     const rOuter=7+17*ratio,rMid=4+9*ratio,rCore=2.2+4*ratio;
     const g=svg('g');
     g.append(
-      svg('circle',{cx,cy,r:rOuter,fill:'#25c6b3',opacity:'0.16'}),
-      svg('circle',{cx,cy,r:rMid,fill:'#eabf38',opacity:'0.42'}),
-      svg('circle',{cx,cy,r:rCore,fill:'#ff694b',opacity:'0.95'})
+      svg('circle',{cx,cy,r:rOuter,fill:'#a855f7',opacity:'0.18'}),
+      svg('circle',{cx,cy,r:rMid,fill:'#eab308',opacity:'0.45'}),
+      svg('circle',{cx,cy,r:rCore,fill:'#ef4444',opacity:'0.95'})
     );
     const t=svg('title');t.textContent=`${p.name} / ${p.uf}: ${fmt(p.value)}`;g.append(t);
     if(topCities.has(p.code)){
-      const label=svg('text',{x:cx+rCore+4,y:cy+3,'font-size':'10',fill:'#ffffff','font-weight':'700'});
+      const label=svg('text',{x:cx+rCore+4,y:cy+3,'font-size':'10',fill:'#fafafa','font-weight':'700'});
       label.textContent=p.name;
       g.append(label);
     }
@@ -106,7 +106,7 @@ function renderPlatformDonut(byPlatform){
   const target=$('platform-donut');if(!target)return;target.replaceChildren();
   const active=(byPlatform||[]).filter(p=>p.value>0).slice(0,6);
   if(!active.length){target.append(el('p','Sem anúncios no recorte.'));return;}
-  const palette=['#e35b50','#d25ca7','#35c779','#4ab8cc','#e4b85e','#a78bfa'];
+  const palette=['#a855f7','#c084fc','#22c55e','#eab308','#ef4444','#38bdf8'];
   const sum=active.reduce((a,b)=>a+b.value,0),circ=2*Math.PI*29;
   const s=svg('svg',{viewBox:'0 0 80 80',class:'donut-svg'});
   let offsetLen=0;
@@ -167,11 +167,11 @@ async function search(keepPage=false){
     const k=$('kpis');k.replaceChildren();
     const topMod=r.ranking?.[0];
     const kpiData=[
-      ['Artistas monitorados',fmt(r.artists.length),'#4fa9e4',`${fmt(r.withArtists)} eventos com atração`],
-      ['Eventos publicados',fmt(r.total),'#a78bfa','Eventos únicos deduplicados'],
-      ['Anúncios associados',fmt(r.listings),'#45c6b1','Publicações nas ticketeiras'],
-      ['Cidades monitoradas',fmt(r.places.length),'#e4b85e',r.radius!=null?`Raio ativo: ${r.radius} km`:'Território nacional'],
-      ['Modalidades em alta',topMod?topMod.name:'—','#45c6b1',topMod?`${fmt(topMod.value)} eventos no recorte`:'Sem eventos']
+      ['Artistas monitorados',fmt(r.artists.length),'#a855f7',`${fmt(r.withArtists)} eventos com atração`],
+      ['Eventos publicados',fmt(r.total),'#22c55e','Eventos únicos deduplicados'],
+      ['Anúncios associados',fmt(r.listings),'#c084fc','Publicações nas ticketeiras'],
+      ['Cidades analisadas',fmt(r.places.length),'#eab308',r.radius!=null?`Raio ativo: ${r.radius} km`:'Território nacional'],
+      ['Modalidades em alta',topMod?topMod.name:'—','#22c55e',topMod?`${fmt(topMod.value)} eventos no recorte`:'Sem eventos']
     ];
     for(const [label,value,dotColor,sub] of kpiData){
       const d=el('div');d.className='kpi';
@@ -179,23 +179,23 @@ async function search(keepPage=false){
       d.append(el('span',label),el('strong',value),el('small',sub),dot);
       k.append(d);
     }
-    bars('artist-bars',r.artists.slice(0,8).map((a,i)=>({name:`${i+1}. ${a.name}`,value:a.value})),{barColor:'#45c6b1'});
+    bars('artist-bars',r.artists.slice(0,8).map((a,i)=>({name:`${i+1}. ${a.name}`,value:a.value})),{barColor:'#a855f7'});
     table('artists',['Artista / atração','Eventos','Cidades','Plataformas'],r.artists.map(a=>{
       const b=el('button',a.name);b.type='button';b.className='link';
       b.addEventListener('click',()=>{field('artist').value=a.name;search()});
       return[b,a.value,a.cities,a.platforms];
     }));
     table('modalities',['Modalidade','Eventos','Período anterior','Variação observada'],r.ranking.map(a=>[a.name,a.value,a.previous,a.growth_pct==null?'—':a.growth_pct.toFixed(1)+'%']));
-    bars('modality-bars',r.ranking.slice(0,8),{barColor:'#4f9bd3'});
+    bars('modality-bars',r.ranking.slice(0,8),{barColor:'#c084fc'});
     renderModalityPivot(r.byModalityRegion);
     table('modality-regions',['Região','Modalidade','Eventos únicos'],r.byModalityRegion.map(a=>[a.region,a.name,a.value]));
-    bars('submodalities',r.subcategories,{barColor:'#45c6b1'});
+    bars('submodalities',r.subcategories,{barColor:'#a855f7'});
     bars('regions',r.byRegion,{showPct:true,colorMap:regionColors});
-    bars('states',r.byState.slice(0,10),{barColor:'#45a5dd'});
-    bars('cities',r.byCity.slice(0,15),{barColor:'#4f9bd3'});
+    bars('states',r.byState.slice(0,10),{barColor:'#c084fc'});
+    bars('cities',r.byCity.slice(0,15),{barColor:'#22c55e'});
     renderPlatformDonut(r.byPlatform);
-    bars('platforms',r.byPlatform.filter(x=>x.value>0),{barColor:'#a78bfa'});
-    bars('calendar',r.seasonality,{barColor:'#e4b85e'});
+    bars('platforms',r.byPlatform.filter(x=>x.value>0),{barColor:'#a855f7'});
+    bars('calendar',r.seasonality,{barColor:'#eab308'});
     table('events',['Evento','Atrações','Cidade','Realização','Modalidade','Fontes'],r.items.map(e=>{
       const links=el('div');
       for(const source of e.sources){
@@ -250,6 +250,51 @@ $('zoom-in')?.addEventListener('click',()=>{zoomLevel=Math.min(3,zoomLevel*1.25)
 $('zoom-out')?.addEventListener('click',()=>{zoomLevel=Math.max(1,zoomLevel/1.25);if(lastResult)map(lastResult)});
 $('zoom-reset')?.addEventListener('click',()=>{zoomLevel=1;if(lastResult)map(lastResult)});
 
+/* ORIGAMID COMMAND PALETTE (CTRL+K) */
+const modal=$('cmdk-modal'),cmdkInput=$('cmdk-input'),cmdkResults=$('cmdk-results');
+function closeCmdk(){if(modal)modal.hidden=true;}
+function openCmdk(){if(!modal)return;modal.hidden=false;cmdkInput.value='';renderCmdk('');cmdkInput.focus();}
+async function renderCmdk(q){
+  if(!cmdkResults)return;cmdkResults.replaceChildren();
+  const term=q.trim().toLowerCase();
+  const items=[];
+  for(const a of lastResult?.artists??[]){
+    if(!term||a.name.toLowerCase().includes(term))items.push({label:`Artista / Atração: ${a.name} (${a.value} eventos)`,tag:'Artista',action:()=>{field('artist').value=a.name;search();}});
+  }
+  for(const m of mods){
+    if(!term||m.name.toLowerCase().includes(term))items.push({label:`Modalidade: ${m.name}`,tag:'Modalidade',action:()=>{field('modality').value=m.id;subs();search();}});
+  }
+  for(const p of platformsList){
+    if(!term||p.name.toLowerCase().includes(term))items.push({label:`Ticketeira: ${p.name}`,tag:'Plataforma',action:()=>{field('platform').value=p.id;search();}});
+  }
+  for(const reg of regions){
+    if(!term||reg.toLowerCase().includes(term))items.push({label:`Região: ${reg}`,tag:'Região',action:()=>{field('region').value=reg;search();}});
+  }
+  if(term.length>=2){
+    try{
+      const cities=await get('/api/events/municipalities?'+new URLSearchParams({q:term}));
+      for(const c of cities.slice(0,6)){
+        items.push({label:`Raio 200 km de ${c.name} / ${c.uf}`,tag:'Perímetro',action:()=>{options(field('center'),[{id:c.code,name:`${c.name} / ${c.uf}`}],'Sem raio');field('center').value=c.code;field('radius').value='200';search();}});
+      }
+    }catch{}
+  }
+  for(const it of items.slice(0,12)){
+    const btn=el('button');btn.type='button';btn.className='cmdk-item';
+    const tag=el('span',it.tag);tag.className='cmdk-tag';
+    btn.append(el('span',it.label),tag);
+    btn.addEventListener('click',()=>{closeCmdk();it.action();});
+    cmdkResults.append(btn);
+  }
+}
+$('cmdk-open')?.addEventListener('click',openCmdk);
+$('cmdk-close')?.addEventListener('click',closeCmdk);
+modal?.addEventListener('click',e=>{if(e.target===modal)closeCmdk();});
+cmdkInput?.addEventListener('input',()=>renderCmdk(cmdkInput.value));
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();modal?.hidden?openCmdk():closeCmdk();}
+  else if(e.key==='Escape'&&modal&&!modal.hidden)closeCmdk();
+});
+
 form.addEventListener('submit',e=>{e.preventDefault();search()});
 $('all-periods').addEventListener('click',()=>{field('start').value='1900-01-01';field('end').value='2199-12-31';search()});
 $('prev').addEventListener('click',()=>{offset=Math.max(0,offset-100);search(true)});
@@ -297,8 +342,8 @@ setInterval(status,60000);setInterval(poll,3000);conflicts();
 (async()=>{
   try{
     const [p,m,g]=await Promise.all([get('/api/events/platforms'),get('/api/radar/modalities'),get('/api/radar/geography')]);
-    mods=m;geo=g;
-    if($('geo-badge')&&geo?.total)$('geo-badge').textContent=`Base Geográfica: ${fmt(geo.total)} municípios • 27 UFs`;
+    platformsList=p;mods=m;geo=g;
+    if($('geo-badge')&&geo?.total)$('geo-badge').textContent=`Base Geográfica Nacional (${fmt(geo.total)} municípios)`;
     options(field('platform'),p,'Todas');
     options(field('modality'),m,'Todas');
     subs();

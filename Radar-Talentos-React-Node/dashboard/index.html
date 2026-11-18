@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Radar de Talentos 2.0 | Geointeligência de Eventos e Ticketeiras</title>
+  <title>Radar de Talentos | Inteligência de Mercado Artístico — Ticketeiras</title>
   <link rel="stylesheet" href="/style.css">
   <script defer src="/dashboard.js"></script>
 </head>
@@ -12,11 +12,11 @@
     <aside class="bi-sidebar">
       <div class="brand-box">
         <svg class="brand-logo" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="19" cy="19" r="15" fill="none" stroke="#45c6b1" stroke-width="2"/>
-          <circle cx="19" cy="19" r="7.5" fill="none" stroke="#45c6b1" stroke-width="1.5"/>
-          <path d="M19 19L30 9" stroke="#45c6b1" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="19" cy="19" r="15" fill="none" stroke="#a855f7" stroke-width="2"/>
+          <circle cx="19" cy="19" r="7.5" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+          <path d="M19 19L30 9" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>
         </svg>
-        <div class="brand">RADAR DE <span>TALENTOS</span></div>
+        <div class="brand">Radar de Talentos <span>Inteligência de mercado artístico</span></div>
       </div>
 
       <div class="bi-menu-group">Inteligência de Mercado</div>
@@ -55,19 +55,29 @@
       </div>
 
       <div class="bi-sidebar-footer">
-        <strong>● Motor de Inteligência Ativo</strong>
-        10 Ticketeiras · Base Geográfica Nacional 27 UFs
+        <strong>● Base Geográfica Nacional</strong>
+        10 Ticketeiras · SQLite Persistente Conectado
       </div>
     </aside>
 
     <div class="bi-content">
       <header class="bi-header" id="sec-overview">
         <div>
-          <h1>Radar de tendências das ticketeiras</h1>
-          <p>Brasil • Análise geográfica de oferta de eventos, ranking de atrações e cruzamento de modalidades por região (não são vendas de ingressos)</p>
+          <h1>Radar das Ticketeiras — O que o mercado está oferecendo?</h1>
+          <p>Monitoramento diário de eventos publicados, crescimento de modalidades, atrações e concentração geográfica</p>
         </div>
         <div class="bi-header-right">
-          <span class="status-pill" id="geo-badge">Base Geográfica Nacional Conectada</span>
+          <button type="button" class="cmdk-trigger" id="cmdk-open" aria-label="Buscar artista, cidade ou modalidade">
+            <span>Buscar artista, cidade ou modalidade...</span>
+            <kbd class="cmdk-kbd">Ctrl K</kbd>
+          </button>
+          <div class="top-media-pills">
+            <a href="/audience.html" class="top-media-pill">Instagram</a>
+            <a href="/audience.html" class="top-media-pill">YouTube</a>
+            <a href="/audience.html" class="top-media-pill">Spotify</a>
+            <a href="/audience.html" class="top-media-pill">TikTok</a>
+          </div>
+          <span class="status-pill" id="geo-badge">Base Geográfica Nacional</span>
         </div>
       </header>
 
@@ -153,10 +163,10 @@
           <div class="map-header">
             <h2>Mapa de oferta de eventos</h2>
             <div class="map-legend">
-              <span class="legend-item"><span class="legend-swatch" style="background:#ff694b"></span>Alta oferta</span>
-              <span class="legend-item"><span class="legend-swatch" style="background:#eabf38"></span>Média oferta</span>
-              <span class="legend-item"><span class="legend-swatch" style="background:#25c6b3"></span>Presença regional</span>
-              <span class="legend-item"><span class="legend-swatch" style="border:1.5px dashed #5ac9ed;background:transparent"></span>Perímetro (Raio km)</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#ef4444"></span>Alta oferta</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#eab308"></span>Concentração média</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#a855f7"></span>Presença regional</span>
+              <span class="legend-item"><span class="legend-swatch" style="border:1.5px dashed #c084fc;background:transparent"></span>Perímetro (Raio km)</span>
             </div>
           </div>
           <div class="map-stage">
@@ -170,8 +180,8 @@
         </section>
 
         <section>
-          <h2>Regiões e estados</h2>
-          <p>Concentração relativa de eventos publicados por macrorregião</p>
+          <h2>Concentração regional</h2>
+          <p>Participação percentual e quantidade de eventos únicos por região</p>
           <div id="regions"></div>
           <h3>Estados com maior oferta</h3>
           <div id="states"></div>
@@ -180,7 +190,7 @@
 
       <div class="bi-trio-grid" id="sec-modalities">
         <section>
-          <h2>Ranking de artistas</h2>
+          <h2>Ranking nacional de artistas</h2>
           <div id="artist-bars"></div>
         </section>
         <section>
@@ -188,7 +198,7 @@
           <div id="modality-bars"></div>
         </section>
         <section>
-          <h2>Distribuição por plataforma</h2>
+          <h2>Distribuição por ticketeira</h2>
           <div id="platform-donut" class="donut-box"></div>
           <div id="platforms"></div>
         </section>
@@ -196,14 +206,14 @@
 
       <div class="dashboard-grid" id="sec-regional">
         <section>
-          <h2>Matriz cruzada: Modalidades × Região</h2>
-          <p>Comparativo direto da presença de cada segmento nos mercados regionais</p>
+          <h2>Cruzamento estratégico: Modalidades × Região</h2>
+          <p>Comparativo direto de quais segmentos estão sendo mais produzidos em cada região brasileira</p>
           <div id="modality-pivot" class="scroll"></div>
           <h3>Detalhamento por região e modalidade</h3>
           <div id="modality-regions" class="scroll"></div>
         </section>
         <section>
-          <h2>Evolução por modalidade e submodalidades</h2>
+          <h2>Crescimento das modalidades e submodalidades</h2>
           <div id="modalities" class="scroll"></div>
           <h3>Submodalidades</h3>
           <div id="submodalities"></div>
@@ -212,12 +222,12 @@
 
       <div class="dashboard-grid" id="sec-calendar">
         <section>
-          <h2>Cidades com maior concentração</h2>
+          <h2>Cidades analisadas com maior oferta</h2>
           <div id="cities"></div>
         </section>
         <section>
-          <h2>Calendário de realização</h2>
-          <p>Distribuição mensal de realização dos eventos identificados</p>
+          <h2>Calendário de realização e sazonalidade</h2>
+          <p>Distribuição mensal de realização dos eventos publicados</p>
           <div id="calendar"></div>
         </section>
       </div>
@@ -254,6 +264,16 @@
         <h3>Alterações de anúncios para revisão</h3>
         <div id="conflicts" class="scroll"></div>
       </section>
+    </div>
+  </div>
+
+  <div class="cmdk-backdrop" id="cmdk-modal" hidden>
+    <div class="cmdk-dialog" role="dialog" aria-modal="true" aria-label="Pesquisa rápida">
+      <div class="cmdk-header">
+        <input id="cmdk-input" class="cmdk-input" placeholder="Digite artista, cidade (ex: Curitiba), modalidade ou plataforma..." autocomplete="off">
+        <button type="button" id="cmdk-close" class="secondary">Esc</button>
+      </div>
+      <div id="cmdk-results" class="cmdk-results"></div>
     </div>
   </div>
 </body>

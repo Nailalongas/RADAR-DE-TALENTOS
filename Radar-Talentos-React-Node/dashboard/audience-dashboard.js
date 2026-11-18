@@ -5,8 +5,8 @@ async function get(path){const r=await fetch(path,{cache:'no-store'});if(!r.ok)t
 function options(select,rows,blank){const old=select.value;select.replaceChildren(new Option(blank,''),...rows.map(r=>new Option(r.name,r.id)));if([...select.options].some(o=>o.value===old))select.value=old}
 function table(id,headers,rows){const target=$(id);if(!target)return;if(!rows.length){target.replaceChildren(el('p','Nenhum registro neste recorte.'));return}const t=el('table'),head=el('thead'),tr=el('tr');headers.forEach(h=>tr.append(el('th',h)));head.append(tr);t.append(head);const body=el('tbody');for(const row of rows){const tr=el('tr');for(const v of row){const td=el('td');td.append(v instanceof Node?v:document.createTextNode(String(v??'—')));tr.append(td)}body.append(tr)}t.append(body);target.replaceChildren(t)}
 
-const regionColors={Sudeste:'#42c7b5',Sul:'#45a5dd',Nordeste:'#c69ee9','Centro-Oeste':'#e8b65b',Norte:'#7d9cb8'};
-function bars(id,rows,{showPct=false,colorMap=null,barColor='#45c6b1'}={}){
+const regionColors={Sudeste:'#a855f7',Sul:'#c084fc',Nordeste:'#22c55e','Centro-Oeste':'#eab308',Norte:'#38bdf8'};
+function bars(id,rows,{showPct=false,colorMap=null,barColor='#a855f7'}={}){
   const target=$(id);if(!target)return;target.replaceChildren();
   if(!rows.length){target.append(el('p','Sem registros.'));return;}
   const max=Math.max(1,...rows.map(r=>r.value)),sum=rows.reduce((a,b)=>a+b.value,0);
@@ -59,7 +59,7 @@ function map(r){
   for(const f of geo?.states?.features??[]){
     const polys=f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates;
     const d=polys.flatMap(poly=>poly.map(ring=>ring.map((p,i)=>(i?'L':'M')+project(p).join(' ')).join(' ')+'Z')).join(' '),uf=f.properties.uf,v=values.get(uf);
-    const p=svg('path',{d,fill:v?`rgba(37,198,179,${0.18+0.55*v/max})`:'#233e3c',stroke:'#75928a','stroke-width':'1','fill-rule':'evenodd'});
+    const p=svg('path',{d,fill:v?`rgba(168,85,247,${0.18+0.55*v/max})`:'#18181b',stroke:'#3f3f46','stroke-width':'1','fill-rule':'evenodd'});
     const title=svg('title');title.textContent=`${uf}: ${fmt(v??0)}`;p.append(title);
     p.addEventListener('click',()=>{field('uf').value=field('uf').value===uf?'':uf;search()});
     s.append(p);
@@ -70,7 +70,7 @@ function map(r){
       const t=i/96*2*Math.PI,lat=Math.asin(Math.sin(a)*Math.cos(d)+Math.cos(a)*Math.sin(d)*Math.cos(t)),lon=b+Math.atan2(Math.sin(t)*Math.sin(d)*Math.cos(a),Math.cos(d)-Math.sin(a)*Math.sin(lat));
       return project([lon*180/Math.PI,lat*180/Math.PI]).join(',');
     }).join(' ');
-    s.append(svg('polygon',{points,fill:'#50c7df','fill-opacity':'0.10',stroke:'#5ac9ed','stroke-width':'1.6','stroke-dasharray':'5 3'}));
+    s.append(svg('polygon',{points,fill:'#a855f7','fill-opacity':'0.12',stroke:'#c084fc','stroke-width':'1.8','stroke-dasharray':'5 3'}));
   }
   const maxCity=Math.max(1,...r.places.map(p=>p.value));
   const topCities=new Set(r.places.slice(0,8).map(p=>p.code));
@@ -79,13 +79,13 @@ function map(r){
     const rOuter=6+18*ratio,rMid=3.5+9.5*ratio,rCore=2+4.2*ratio;
     const g=svg('g');
     g.append(
-      svg('circle',{cx,cy,r:rOuter,fill:'#25c6b3',opacity:'0.16'}),
-      svg('circle',{cx,cy,r:rMid,fill:'#eabf38',opacity:'0.42'}),
-      svg('circle',{cx,cy,r:rCore,fill:'#ff694b',opacity:'0.95'})
+      svg('circle',{cx,cy,r:rOuter,fill:'#a855f7',opacity:'0.18'}),
+      svg('circle',{cx,cy,r:rMid,fill:'#eab308',opacity:'0.45'}),
+      svg('circle',{cx,cy,r:rCore,fill:'#ef4444',opacity:'0.95'})
     );
     const t=svg('title');t.textContent=`${p.name} / ${p.uf}: ${fmt(p.value)}`;g.append(t);
     if(topCities.has(p.code)){
-      const label=svg('text',{x:cx+rCore+4,y:cy+3,'font-size':'10',fill:'#ffffff','font-weight':'700'});
+      const label=svg('text',{x:cx+rCore+4,y:cy+3,'font-size':'10',fill:'#fafafa','font-weight':'700'});
       label.textContent=p.name;
       g.append(label);
     }
@@ -104,7 +104,7 @@ let reports=[],activeReports=[],reportSeq=0;
 
 function renderMediaDonut(){
   const target=$('media-donut');if(!target)return;target.replaceChildren();
-  const netColors={YouTube:'#e35b50',Instagram:'#d25ca7',Spotify:'#35c779',TikTok:'#4ab8cc'};
+  const netColors={YouTube:'#ef4444',Instagram:'#a855f7',Spotify:'#22c55e',TikTok:'#eab308'};
   const counts=['YouTube','Instagram','Spotify','TikTok'].map(net=>({
     name:net,
     color:netColors[net],
@@ -137,7 +137,7 @@ function renderMediaDonut(){
 
 function syncPlatformChips(){
   const current=field('network').value;
-  document.querySelectorAll('#platform-switcher .platform-chip').forEach(btn=>{
+  document.querySelectorAll('#platform-switcher .platform-chip, #top-media-switcher .top-media-pill').forEach(btn=>{
     btn.classList.toggle('active',btn.dataset.net===current);
   });
 }
@@ -216,11 +216,11 @@ async function search(keepPage=false){
     k.replaceChildren();
     const topReg=r.byRegion?.[0];
     const kpiItems=[
-      ['Artistas monitorados',r.total?fmt(r.total):'—','#4fa9e4','Com audiência no recorte'],
-      [names[r.metric]??r.metric,r.total?fmt(count):'—','#45c6b1',`Mídia: ${r.network}`],
-      ['Cidades monitoradas',r.total?fmt(r.places.length):'—','#e4b85e',r.radius!=null?`Raio ativo: ${r.radius} km`:'Território nacional'],
-      ['Região líder',topReg?topReg.name:'—','#a78bfa',topReg&&count>0?`${(topReg.value/count*100).toFixed(1)}% da audiência`:'Sem registros'],
-      ['Fontes sincronizadas',fmt(reports.length),'#50d7dc','4 mídias habilitadas']
+      ['Artistas monitorados',r.total?fmt(r.total):'—','#a855f7','Com audiência no recorte'],
+      [names[r.metric]??r.metric,r.total?fmt(count):'—','#22c55e',`Mídia: ${r.network}`],
+      ['Cidades analisadas',r.total?fmt(r.places.length):'—','#eab308',r.radius!=null?`Raio ativo: ${r.radius} km`:'Território nacional'],
+      ['Região líder',topReg?topReg.name:'—','#c084fc',topReg&&count>0?`${(topReg.value/count*100).toFixed(1)}% da audiência`:'Sem registros'],
+      ['Fontes sincronizadas',fmt(reports.length),'#22c55e','4 mídias habilitadas']
     ];
     for(const [label,val,dotColor,sub] of kpiItems){
       const box=el('div');box.className='kpi';
@@ -229,9 +229,9 @@ async function search(keepPage=false){
       k.append(box);
     }
     bars('regions',r.byRegion,{showPct:true,colorMap:regionColors});
-    bars('states',r.byState.slice(0,10),{barColor:'#45a5dd'});
-    bars('cities',r.places.slice(0,10).map(x=>({name:x.name+' / '+x.uf,value:x.value})),{barColor:'#4f9bd3'});
-    bars('artist-bars',r.items.slice(0,8).map((a,i)=>({name:`${i+1}. ${a.name}`,value:a.value})),{barColor:'#45c6b1'});
+    bars('states',r.byState.slice(0,10),{barColor:'#c084fc'});
+    bars('cities',r.places.slice(0,10).map(x=>({name:x.name+' / '+x.uf,value:x.value})),{barColor:'#22c55e'});
+    bars('artist-bars',r.items.slice(0,8).map((a,i)=>({name:`${i+1}. ${a.name}`,value:a.value})),{barColor:'#a855f7'});
     table('artists',['Posição','Artista','Valor','Municípios','Fonte','Qualidade'],r.items.map(a=>{
       const b=el('button',a.name);b.type='button';b.className='link';
       b.addEventListener('click',()=>{field('talent').value=a.id;search()});
@@ -247,7 +247,7 @@ async function search(keepPage=false){
   }
 }
 
-document.querySelectorAll('#platform-switcher .platform-chip').forEach(btn=>{
+document.querySelectorAll('#platform-switcher .platform-chip, #top-media-switcher .top-media-pill').forEach(btn=>{
   btn.addEventListener('click',()=>{
     field('network').value=btn.dataset.net;
     networkChanged();
@@ -289,6 +289,51 @@ $('zoom-in')?.addEventListener('click',()=>{zoomLevel=Math.min(3,zoomLevel*1.25)
 $('zoom-out')?.addEventListener('click',()=>{zoomLevel=Math.max(1,zoomLevel/1.25);if(lastResult)map(lastResult)});
 $('zoom-reset')?.addEventListener('click',()=>{zoomLevel=1;if(lastResult)map(lastResult)});
 
+/* ORIGAMID COMMAND PALETTE (CTRL+K) */
+const modal=$('cmdk-modal'),cmdkInput=$('cmdk-input'),cmdkResults=$('cmdk-results');
+function closeCmdk(){if(modal)modal.hidden=true;}
+function openCmdk(){if(!modal)return;modal.hidden=false;cmdkInput.value='';renderCmdk('');cmdkInput.focus();}
+async function renderCmdk(q){
+  if(!cmdkResults)return;cmdkResults.replaceChildren();
+  const term=q.trim().toLowerCase();
+  const items=[];
+  for(const net of ['Instagram','YouTube','Spotify','TikTok']){
+    if(!term||net.toLowerCase().includes(term))items.push({label:`Mídia: ${net}`,tag:'Mídia',action:()=>{field('network').value=net;networkChanged();}});
+  }
+  for(const opt of [...field('talent').options].slice(1)){
+    if(!term||opt.text.toLowerCase().includes(term))items.push({label:`Artista: ${opt.text}`,tag:'Artista',action:()=>{field('talent').value=opt.value;search();}});
+  }
+  for(const m of mods){
+    if(!term||m.name.toLowerCase().includes(term))items.push({label:`Modalidade: ${m.name}`,tag:'Modalidade',action:()=>{field('modality').value=m.id;subs();search();}});
+  }
+  for(const reg of regions){
+    if(!term||reg.toLowerCase().includes(term))items.push({label:`Região: ${reg}`,tag:'Região',action:()=>{field('region').value=reg;search();}});
+  }
+  if(term.length>=2){
+    try{
+      const cities=await get('/api/events/municipalities?'+new URLSearchParams({q:term}));
+      for(const c of cities.slice(0,6)){
+        items.push({label:`Raio 200 km de ${c.name} / ${c.uf}`,tag:'Perímetro',action:()=>{options(field('center'),[{id:c.code,name:`${c.name} / ${c.uf}`}],'Sem raio');field('center').value=c.code;field('radius').value='200';search();}});
+      }
+    }catch{}
+  }
+  for(const it of items.slice(0,12)){
+    const btn=el('button');btn.type='button';btn.className='cmdk-item';
+    const tag=el('span',it.tag);tag.className='cmdk-tag';
+    btn.append(el('span',it.label),tag);
+    btn.addEventListener('click',()=>{closeCmdk();it.action();});
+    cmdkResults.append(btn);
+  }
+}
+$('cmdk-open')?.addEventListener('click',openCmdk);
+$('cmdk-close')?.addEventListener('click',closeCmdk);
+modal?.addEventListener('click',e=>{if(e.target===modal)closeCmdk();});
+cmdkInput?.addEventListener('input',()=>renderCmdk(cmdkInput.value));
+window.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();modal?.hidden?openCmdk():closeCmdk();}
+  else if(e.key==='Escape'&&modal&&!modal.hidden)closeCmdk();
+});
+
 form.addEventListener('submit',e=>{e.preventDefault();search()});
 field('network').addEventListener('change',networkChanged);
 field('report').addEventListener('change',reportChanged);
@@ -302,7 +347,7 @@ $('next').addEventListener('click',()=>{if(offset+100<total){offset+=100;search(
 (async()=>{
   try{
     [mods,geo]=await Promise.all([get('/api/radar/modalities'),get('/api/radar/geography')]);
-    if($('geo-badge')&&geo?.total)$('geo-badge').textContent=`Base Geográfica: ${fmt(geo.total)} municípios • 27 UFs`;
+    if($('geo-badge')&&geo?.total)$('geo-badge').textContent=`Base Geográfica Nacional (${fmt(geo.total)} municípios)`;
     options(field('modality'),mods,'Todas');
     subs();
     await loadReports();

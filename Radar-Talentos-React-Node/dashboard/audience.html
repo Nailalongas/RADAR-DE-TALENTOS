@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Radar de Talentos 2.0 | Geointeligência de Audiência</title>
+  <title>Radar de Talentos | Inteligência de Mercado Artístico — Audiência</title>
   <link rel="stylesheet" href="/style.css">
   <script defer src="/audience-dashboard.js"></script>
 </head>
@@ -12,11 +12,11 @@
     <aside class="bi-sidebar">
       <div class="brand-box">
         <svg class="brand-logo" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="19" cy="19" r="15" fill="none" stroke="#45c6b1" stroke-width="2"/>
-          <circle cx="19" cy="19" r="7.5" fill="none" stroke="#45c6b1" stroke-width="1.5"/>
-          <path d="M19 19L30 9" stroke="#45c6b1" stroke-width="2.5" stroke-linecap="round"/>
+          <circle cx="19" cy="19" r="15" fill="none" stroke="#a855f7" stroke-width="2"/>
+          <circle cx="19" cy="19" r="7.5" fill="none" stroke="#c084fc" stroke-width="1.5"/>
+          <path d="M19 19L30 9" stroke="#a855f7" stroke-width="2.5" stroke-linecap="round"/>
         </svg>
-        <div class="brand">RADAR DE <span>TALENTOS</span></div>
+        <div class="brand">Radar de Talentos <span>Inteligência de mercado artístico</span></div>
       </div>
 
       <div class="bi-menu-group">Inteligência de Mercado</div>
@@ -38,7 +38,7 @@
         <a href="#sec-coverage">Configurações</a>
       </nav>
 
-      <div class="bi-menu-group">Plataformas</div>
+      <div class="bi-menu-group">Mídias Monitoradas</div>
       <div class="sidebar-platforms" id="platform-switcher">
         <button type="button" class="platform-chip" data-net="Instagram">
           <span class="platform-dot dot-ig">✓</span> Instagram
@@ -55,19 +55,29 @@
       </div>
 
       <div class="bi-sidebar-footer">
-        <strong>● Base Geográfica Ativa</strong>
-        SQLite Persistente Conectado · Cobertura Nacional 27 UFs
+        <strong>● Base Geográfica Nacional</strong>
+        SQLite Persistente Conectado · Cobertura 27 UFs
       </div>
     </aside>
 
     <div class="bi-content">
       <header class="bi-header" id="sec-overview">
         <div>
-          <h1>Inteligência de mercado e audiência</h1>
-          <p>Brasil • Análise geográfica de audiência por artista, mídia (YouTube, Instagram, Spotify, TikTok) e perímetro em km</p>
+          <h1>Radar de Talentos — Onde está o público?</h1>
+          <p>Concentração geográfica da audiência dos artistas por mídia, região e perímetro em quilômetros</p>
         </div>
         <div class="bi-header-right">
-          <span class="status-pill" id="geo-badge">Base Geográfica Nacional Conectada</span>
+          <button type="button" class="cmdk-trigger" id="cmdk-open" aria-label="Buscar artista, cidade ou modalidade">
+            <span>Buscar artista, cidade ou modalidade...</span>
+            <kbd class="cmdk-kbd">Ctrl K</kbd>
+          </button>
+          <div class="top-media-pills" id="top-media-switcher">
+            <button type="button" class="top-media-pill" data-net="Instagram">Instagram</button>
+            <button type="button" class="top-media-pill active" data-net="YouTube">YouTube</button>
+            <button type="button" class="top-media-pill" data-net="Spotify">Spotify</button>
+            <button type="button" class="top-media-pill" data-net="TikTok">TikTok</button>
+          </div>
+          <span class="status-pill" id="geo-badge">Base Geográfica Nacional</span>
         </div>
       </header>
 
@@ -143,12 +153,12 @@
       <div class="bi-hero-grid" id="sec-regional">
         <section class="map-section">
           <div class="map-header">
-            <h2>Mapa de concentração nacional</h2>
+            <h2>Mapa de concentração de audiência</h2>
             <div class="map-legend">
-              <span class="legend-item"><span class="legend-swatch" style="background:#ff694b"></span>Alta concentração</span>
-              <span class="legend-item"><span class="legend-swatch" style="background:#eabf38"></span>Média concentração</span>
-              <span class="legend-item"><span class="legend-swatch" style="background:#25c6b3"></span>Alcance regional</span>
-              <span class="legend-item"><span class="legend-swatch" style="border:1.5px dashed #5ac9ed;background:transparent"></span>Perímetro (Raio km)</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#ef4444"></span>Alta concentração</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#eab308"></span>Concentração média</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#a855f7"></span>Alcance regional</span>
+              <span class="legend-item"><span class="legend-swatch" style="border:1.5px dashed #c084fc;background:transparent"></span>Perímetro (Raio km)</span>
             </div>
           </div>
           <div class="map-stage">
@@ -162,25 +172,25 @@
         </section>
 
         <section>
-          <h2>Audiência por região</h2>
-          <p>Concentração relativa e participação percentual na mídia selecionada</p>
+          <h2>Concentração regional</h2>
+          <p>Participação percentual e volume conhecido por região na mídia selecionada</p>
           <div id="regions"></div>
-          <h3>Top Estados (UF)</h3>
+          <h3>Estados com maior audiência</h3>
           <div id="states"></div>
         </section>
       </div>
 
       <div class="bi-trio-grid">
         <section>
-          <h2>Ranking de artistas</h2>
+          <h2>Ranking nacional de artistas</h2>
           <div id="artist-bars"></div>
         </section>
         <section>
-          <h2>Cidades com maior concentração</h2>
+          <h2>Cidades analisadas com maior público</h2>
           <div id="cities"></div>
         </section>
         <section>
-          <h2>Distribuição por plataforma</h2>
+          <h2>Distribuição percentual por mídia</h2>
           <div id="media-donut" class="donut-box"></div>
         </section>
       </div>
@@ -200,6 +210,16 @@
         <div id="coverage" class="scroll"></div>
         <p>Os relatórios municipais precisam ser autorizados ou licenciados. As métricas de redes diferentes nunca são somadas.</p>
       </section>
+    </div>
+  </div>
+
+  <div class="cmdk-backdrop" id="cmdk-modal" hidden>
+    <div class="cmdk-dialog" role="dialog" aria-modal="true" aria-label="Pesquisa rápida">
+      <div class="cmdk-header">
+        <input id="cmdk-input" class="cmdk-input" placeholder="Digite artista, cidade (ex: Curitiba), modalidade ou mídia..." autocomplete="off">
+        <button type="button" id="cmdk-close" class="secondary">Esc</button>
+      </div>
+      <div id="cmdk-results" class="cmdk-results"></div>
     </div>
   </div>
 </body>
