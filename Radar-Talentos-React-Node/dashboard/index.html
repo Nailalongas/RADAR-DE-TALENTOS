@@ -1,1 +1,260 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Radar de Talentos | Eventos Brasil</title><link rel="stylesheet" href="/style.css"><script defer src="/dashboard.js"></script></head><body><header><div class="brand">RADAR <span>DE TALENTOS</span></div><p>Inteligência nacional de eventos e atrações</p><nav><a href="/audience.html">Audiência regional</a><a href="/" aria-current="page">Tendências de eventos</a></nav></header><main><section><h1>Radar de tendências das ticketeiras</h1><p>Modalidades publicadas pelas ticketeiras, por região. Ranking de atrações como informação complementar. Não são vendas de ingressos.</p><form id="filters"><div class="filters"><label>Artista ou atração<input name="artist" placeholder="Todos os artistas"></label><label>Modalidade<select name="modality"><option value="">Todas</option></select></label><label>Submodalidade<select name="submodality"><option value="">Todas</option></select></label><label>Plataforma<select name="platform"><option value="">Todas</option></select></label><label>Região<select name="region"><option value="">Brasil inteiro</option></select></label><label>Estado<select name="uf"><option value="">Todos</option></select></label><label>Município<select name="city"><option value="">Todos</option></select><input id="city-search" placeholder="Pesquisar município" aria-label="Pesquisar município"></label><label>Centro do raio<select name="center"><option value="">Sem raio</option></select><input id="center-search" placeholder="Pesquisar centro" aria-label="Pesquisar centro"></label><label>Raio (km)<input name="radius" type="number" min="0" max="10000" placeholder="Sem raio"></label><label>Situação<select name="status"><option value="all">Todas as publicações</option><option value="active">Não cancelados</option><option value="cancelled">Cancelados em todas as fontes</option></select></label><label>Data analisada<select name="basis"><option value="first_seen">Primeira detecção</option><option value="event_date">Realização</option><option value="published_on">Publicação informada</option></select></label><label>Início<input name="start" type="date" required></label><label>Fim<input name="end" type="date" required></label></div><button>Consultar</button> <button id="all-periods" type="button">Todo o catálogo</button></form><p id="message" role="status"></p><div id="kpis" class="kpis"></div></section><section><h2>Mapa de oferta de eventos</h2><div id="map"></div></section><section><h2>Ranking por modalidade</h2><div id="modality-bars"></div><div id="modalities" class="scroll"></div><h2>Modalidades por região</h2><div id="modality-regions" class="scroll"></div><h2>Submodalidades</h2><div id="submodalities"></div><h2>Regiões e estados</h2><div id="regions"></div><div id="states"></div><h2>Cidades</h2><div id="cities"></div><h2>Plataformas</h2><div id="platforms"></div><h2>Calendário de realização</h2><div id="calendar"></div></section><section><h2>Ranking de artistas e atrações</h2><p>Apenas atrações identificadas pelas fontes. Nomes iguais são agrupados; homônimos exigem revisão.</p><div id="artists" class="scroll"></div></section><section><h2>Catálogo de eventos</h2><div id="events" class="scroll"></div><div class="page-controls"><button id="prev" type="button">Anterior</button> <span id="page"></span> <button id="next" type="button">Próxima</button></div></section><section><h2>Central de sincronização</h2><p id="worker"></p><div id="sources" class="scroll"></div><h3>Coletas de audiência regional</h3><div id="audience-jobs" class="scroll"></div><h3>Alertas de tendências e coleta</h3><div id="alerts"></div><button id="refresh" type="button">Atualizar central</button> <button id="sync" type="button">Sincronizar agora</button><p id="sync-msg" role="status"></p><h3>Alterações de anúncios para revisão</h3><div id="conflicts" class="scroll"></div></section></main></body></html>
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Radar de Talentos 2.0 | Geointeligência de Eventos e Ticketeiras</title>
+  <link rel="stylesheet" href="/style.css">
+  <script defer src="/dashboard.js"></script>
+</head>
+<body>
+  <div class="bi-shell">
+    <aside class="bi-sidebar">
+      <div class="brand-box">
+        <svg class="brand-logo" viewBox="0 0 38 38" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="19" cy="19" r="15" fill="none" stroke="#45c6b1" stroke-width="2"/>
+          <circle cx="19" cy="19" r="7.5" fill="none" stroke="#45c6b1" stroke-width="1.5"/>
+          <path d="M19 19L30 9" stroke="#45c6b1" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+        <div class="brand">RADAR DE <span>TALENTOS</span></div>
+      </div>
+
+      <div class="bi-menu-group">Inteligência de Mercado</div>
+      <nav class="bi-nav">
+        <a href="#sec-overview">Visão geral</a>
+        <a href="/audience.html">Audiência geográfica</a>
+        <a href="#sec-artists">Ranking de artistas</a>
+        <a href="/" aria-current="page">Radar das ticketeiras</a>
+        <a href="#sec-modalities">Tendências por modalidade</a>
+        <a href="#sec-regional">Comparativo regional</a>
+        <a href="#sec-calendar">Calendário comercial</a>
+      </nav>
+
+      <div class="bi-menu-group">Gerenciamento</div>
+      <nav class="bi-nav">
+        <a href="#sec-sync">Central de sincronização</a>
+        <a href="#sec-alerts">Alertas</a>
+        <a href="#sec-catalog">Relatórios</a>
+        <a href="#sec-sync">Configurações</a>
+      </nav>
+
+      <div class="bi-menu-group">Audiência por Mídia</div>
+      <div class="sidebar-platforms">
+        <a href="/audience.html" class="platform-chip" style="text-decoration:none">
+          <span class="platform-dot dot-ig">✓</span> Instagram
+        </a>
+        <a href="/audience.html" class="platform-chip" style="text-decoration:none">
+          <span class="platform-dot dot-yt">✓</span> YouTube
+        </a>
+        <a href="/audience.html" class="platform-chip" style="text-decoration:none">
+          <span class="platform-dot dot-sp">✓</span> Spotify
+        </a>
+        <a href="/audience.html" class="platform-chip" style="text-decoration:none">
+          <span class="platform-dot dot-tk">✓</span> TikTok
+        </a>
+      </div>
+
+      <div class="bi-sidebar-footer">
+        <strong>● Motor de Inteligência Ativo</strong>
+        10 Ticketeiras · Base Geográfica Nacional 27 UFs
+      </div>
+    </aside>
+
+    <div class="bi-content">
+      <header class="bi-header" id="sec-overview">
+        <div>
+          <h1>Radar de tendências das ticketeiras</h1>
+          <p>Brasil • Análise geográfica de oferta de eventos, ranking de atrações e cruzamento de modalidades por região (não são vendas de ingressos)</p>
+        </div>
+        <div class="bi-header-right">
+          <span class="status-pill" id="geo-badge">Base Geográfica Nacional Conectada</span>
+        </div>
+      </header>
+
+      <section class="filter-card">
+        <div class="preset-bar">
+          <span>Pesquisas salvas:</span>
+          <button type="button" class="preset-btn" data-preset="all">Brasil Inteiro</button>
+          <button type="button" class="preset-btn" data-preset="shows-pr">Shows no Paraná</button>
+          <button type="button" class="preset-btn" data-preset="shows-sc">Shows em Santa Catarina</button>
+          <button type="button" class="preset-btn" data-preset="festivais-se">Festivais no Sudeste</button>
+          <button type="button" class="preset-btn" data-preset="corridas-sul">Corridas no Sul</button>
+          <button type="button" class="preset-btn" data-preset="cwb200">Curitiba • Raio 200 km</button>
+        </div>
+
+        <form id="filters">
+          <div class="filters">
+            <label>Artista ou atração
+              <input name="artist" placeholder="Todos os artistas">
+            </label>
+            <label>Modalidade
+              <select name="modality"><option value="">Todas</option></select>
+            </label>
+            <label>Submodalidade
+              <select name="submodality"><option value="">Todas</option></select>
+            </label>
+            <label>Plataforma
+              <select name="platform"><option value="">Todas</option></select>
+            </label>
+            <label>Região
+              <select name="region"><option value="">Brasil inteiro</option></select>
+            </label>
+            <label>Estado
+              <select name="uf"><option value="">Todos</option></select>
+            </label>
+            <label>Município
+              <select name="city"><option value="">Todos</option></select>
+              <input id="city-search" placeholder="Pesquisar município" aria-label="Pesquisar município">
+            </label>
+            <label>Centro do raio
+              <select name="center"><option value="">Sem raio</option></select>
+              <input id="center-search" placeholder="Pesquisar centro" aria-label="Pesquisar centro">
+            </label>
+            <label>Raio (km)
+              <input name="radius" type="number" min="0" max="10000" placeholder="Sem raio">
+            </label>
+            <label>Situação
+              <select name="status">
+                <option value="all">Todas as publicações</option>
+                <option value="active">Não cancelados</option>
+                <option value="cancelled">Cancelados em todas as fontes</option>
+              </select>
+            </label>
+            <label>Data analisada
+              <select name="basis">
+                <option value="first_seen">Primeira detecção</option>
+                <option value="event_date">Realização</option>
+                <option value="published_on">Publicação informada</option>
+              </select>
+            </label>
+            <label>Início
+              <input name="start" type="date" required>
+            </label>
+            <label>Fim
+              <input name="end" type="date" required>
+            </label>
+          </div>
+          <div class="filter-footer">
+            <p id="message" role="status"></p>
+            <div class="filter-actions">
+              <button type="submit">Consultar</button>
+              <button id="all-periods" type="button" class="secondary">Todo o catálogo</button>
+              <button id="clear-filters" type="button" class="secondary">Limpar filtros</button>
+              <button id="export-csv" type="button" class="secondary">Exportar CSV</button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <div id="kpis" class="kpis"></div>
+
+      <div class="bi-hero-grid">
+        <section class="map-section">
+          <div class="map-header">
+            <h2>Mapa de oferta de eventos</h2>
+            <div class="map-legend">
+              <span class="legend-item"><span class="legend-swatch" style="background:#ff694b"></span>Alta oferta</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#eabf38"></span>Média oferta</span>
+              <span class="legend-item"><span class="legend-swatch" style="background:#25c6b3"></span>Presença regional</span>
+              <span class="legend-item"><span class="legend-swatch" style="border:1.5px dashed #5ac9ed;background:transparent"></span>Perímetro (Raio km)</span>
+            </div>
+          </div>
+          <div class="map-stage">
+            <div class="map-zoom-controls">
+              <button type="button" id="zoom-in" title="Aumentar zoom">+</button>
+              <button type="button" id="zoom-out" title="Reduzir zoom">−</button>
+              <button type="button" id="zoom-reset" title="Restaurar mapa">⟲</button>
+            </div>
+            <div id="map"></div>
+          </div>
+        </section>
+
+        <section>
+          <h2>Regiões e estados</h2>
+          <p>Concentração relativa de eventos publicados por macrorregião</p>
+          <div id="regions"></div>
+          <h3>Estados com maior oferta</h3>
+          <div id="states"></div>
+        </section>
+      </div>
+
+      <div class="bi-trio-grid" id="sec-modalities">
+        <section>
+          <h2>Ranking de artistas</h2>
+          <div id="artist-bars"></div>
+        </section>
+        <section>
+          <h2>Ranking por modalidade</h2>
+          <div id="modality-bars"></div>
+        </section>
+        <section>
+          <h2>Distribuição por plataforma</h2>
+          <div id="platform-donut" class="donut-box"></div>
+          <div id="platforms"></div>
+        </section>
+      </div>
+
+      <div class="dashboard-grid" id="sec-regional">
+        <section>
+          <h2>Matriz cruzada: Modalidades × Região</h2>
+          <p>Comparativo direto da presença de cada segmento nos mercados regionais</p>
+          <div id="modality-pivot" class="scroll"></div>
+          <h3>Detalhamento por região e modalidade</h3>
+          <div id="modality-regions" class="scroll"></div>
+        </section>
+        <section>
+          <h2>Evolução por modalidade e submodalidades</h2>
+          <div id="modalities" class="scroll"></div>
+          <h3>Submodalidades</h3>
+          <div id="submodalities"></div>
+        </section>
+      </div>
+
+      <div class="dashboard-grid" id="sec-calendar">
+        <section>
+          <h2>Cidades com maior concentração</h2>
+          <div id="cities"></div>
+        </section>
+        <section>
+          <h2>Calendário de realização</h2>
+          <p>Distribuição mensal de realização dos eventos identificados</p>
+          <div id="calendar"></div>
+        </section>
+      </div>
+
+      <section id="sec-artists">
+        <h2>Ranking de artistas e atrações</h2>
+        <p>Apenas atrações identificadas pelas fontes. Nomes iguais são agrupados; homônimos exigem revisão.</p>
+        <div id="artists" class="scroll"></div>
+      </section>
+
+      <section id="sec-catalog">
+        <h2>Catálogo de eventos</h2>
+        <div id="events" class="scroll"></div>
+        <div class="page-controls">
+          <button id="prev" type="button" class="secondary">Anterior</button>
+          <span id="page"></span>
+          <button id="next" type="button" class="secondary">Próxima</button>
+        </div>
+      </section>
+
+      <section id="sec-sync">
+        <h2>Central de sincronização</h2>
+        <p id="worker"></p>
+        <div id="sources" class="scroll"></div>
+        <h3>Coletas de audiência regional</h3>
+        <div id="audience-jobs" class="scroll"></div>
+        <h3 id="sec-alerts">Alertas de tendências e coleta</h3>
+        <div id="alerts"></div>
+        <div class="filter-actions" style="margin:12px 0">
+          <button id="refresh" type="button" class="secondary">Atualizar central</button>
+          <button id="sync" type="button">Sincronizar agora</button>
+        </div>
+        <p id="sync-msg" role="status"></p>
+        <h3>Alterações de anúncios para revisão</h3>
+        <div id="conflicts" class="scroll"></div>
+      </section>
+    </div>
+  </div>
+</body>
+</html>
