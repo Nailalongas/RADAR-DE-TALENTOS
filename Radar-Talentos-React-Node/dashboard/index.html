@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta content="width=device-width, initial-scale=1" name="viewport" />
-  <title>Radar de Talentos | Eventos Brasil</title>
+  <title>Radar de Talentos | Inteligência Artística e Geográfica</title>
   <link href="/style.css" rel="stylesheet" />
   <script defer="" src="/dashboard.js"></script>
   <script defer="True" src="/layout.js"></script>
@@ -20,25 +20,21 @@
     <p class="brand-sub">Inteligência de mercado</p>
     <nav aria-label="Navegação principal">
       <span class="nav-label">Módulos</span>
+      <a aria-current="page" href="/">▥ &nbsp; Radar de Talentos</a>
       <a href="/audience.html">◉ &nbsp; Audiência geográfica</a>
-      <a aria-current="page" href="/">▥ &nbsp; Radar de tendências</a>
       <a href="/commercial.html">↗ &nbsp; Oportunidade Comercial</a>
 
-      <span class="nav-label">Mídias Monitoradas</span>
-      <a href="/audience.html?network=Instagram">◈ &nbsp; Instagram</a>
-      <a href="/audience.html?network=YouTube">▶ &nbsp; YouTube</a>
-      <a href="/audience.html?network=Spotify">♫ &nbsp; Spotify</a>
-      <a href="/audience.html?network=TikTok">♪ &nbsp; TikTok</a>
+      <span class="nav-label">Mídias Digitais</span>
+      <button aria-pressed="true" class="nav-btn" data-network="Instagram" type="button">◈ &nbsp; Instagram</button>
+      <button aria-pressed="false" class="nav-btn" data-network="YouTube" type="button">▶ &nbsp; YouTube</button>
+      <button aria-pressed="false" class="nav-btn" data-network="Spotify" type="button">♫ &nbsp; Spotify</button>
+      <button aria-pressed="false" class="nav-btn" data-network="TikTok" type="button">♪ &nbsp; TikTok</button>
 
-      <span class="nav-label">Painel de Eventos</span>
-      <a href="#overview">▣ &nbsp; Indicadores &amp; Filtros</a>
-      <a href="#geography">⊕ &nbsp; Mapa &amp; Regiões</a>
-      <a href="#artists-panel">★ &nbsp; Ranking de atrações</a>
-      <a href="#ranking">▤ &nbsp; Modalidades</a>
-      <a href="#territories-panel">⌖ &nbsp; Estados &amp; Cidades</a>
-      <a href="#platforms-panel">◫ &nbsp; Plataformas &amp; Calendário</a>
-      <a href="#catalog">☰ &nbsp; Catálogo de eventos</a>
-      <a href="#operations">⟳ &nbsp; Central de sincronização</a>
+      <span class="nav-label">Neste Painel</span>
+      <a href="#overview">▣ &nbsp; Artistas por categoria</a>
+      <a href="#geography">⊕ &nbsp; Mapa &amp; Mídias</a>
+      <a href="#artists-panel">★ &nbsp; Ranking de crescimento</a>
+      <a href="#localities-panel">⌖ &nbsp; Cidades &amp; Consolidado</a>
     </nav>
     <div class="side-status">
       <span class="status-dot"></span>
@@ -53,31 +49,36 @@
         <div class="topbar-title">
           <button aria-label="Alternar menu lateral" class="sidebar-toggle" id="sidebar-toggle" type="button">☰</button>
           <div>
-            <span class="eyebrow">Inteligência de mercado / Eventos</span>
-            <h1>Radar de tendências <span class="topbar-sub">Oferta observada por região, modalidade e atração</span></h1>
+            <span class="eyebrow">Inteligência Artística &amp; Geográfica</span>
+            <h1>Radar de Talentos <span class="topbar-sub">Artistas por categoria, evolução nas mídias e concentração municipal</span></h1>
           </div>
         </div>
         <div class="topbar-actions">
-          <button class="secondary-button" id="all-periods" type="button">Todo o catálogo</button>
+          <div aria-label="Selecionar mídia" class="media-shortcuts">
+            <button aria-pressed="true" data-network="Instagram" type="button">Instagram</button>
+            <button aria-pressed="false" data-network="YouTube" type="button">YouTube</button>
+            <button aria-pressed="false" data-network="Spotify" type="button">Spotify</button>
+            <button aria-pressed="false" data-network="TikTok" type="button">TikTok</button>
+          </div>
+          <button class="secondary-button" id="reset-all" type="button">Brasil inteiro</button>
           <button class="search-trigger" id="open-search" type="button">Buscar no Radar <kbd>Ctrl K</kbd></button>
         </div>
       </div>
 
       <details class="filter-panel" open="">
-        <summary>Filtros da análise</summary>
+        <summary>Filtros do Radar de Talentos</summary>
         <form id="filters">
           <div class="filters">
-            <label>Artista ou atração
-              <input name="artist" placeholder="Todos os artistas" />
+            <label>Categoria
+              <select name="category"><option value="">Todas</option></select>
             </label>
-            <label>Modalidade
-              <select name="modality"><option value="">Todas</option></select>
-            </label>
-            <label>Submodalidade
-              <select name="submodality"><option value="">Todas</option></select>
-            </label>
-            <label>Plataforma
-              <select name="platform"><option value="">Todas</option></select>
+            <label>Mídia
+              <select name="network">
+                <option value="Instagram">Instagram</option>
+                <option value="YouTube">YouTube</option>
+                <option value="Spotify">Spotify</option>
+                <option value="TikTok">TikTok</option>
+              </select>
             </label>
             <label>Região
               <select name="region"><option value="">Brasil inteiro</option></select>
@@ -86,149 +87,85 @@
               <select name="uf"><option value="">Todos</option></select>
             </label>
             <label>Município
-              <div class="filter-Dual">
-                <select name="city"><option value="">Todos</option></select>
-                <input aria-label="Pesquisar município" id="city-search" placeholder="Buscar cidade" />
-              </div>
+              <select name="city"><option value="">Todos</option></select>
+            </label>
+            <label>Período
+              <select name="days">
+                <option value="7">7 dias</option>
+                <option selected="" value="30">30 dias</option>
+                <option value="90">90 dias</option>
+              </select>
             </label>
             <label>Centro do raio
-              <div class="filter-Dual">
-                <select name="center"><option value="">Sem raio</option></select>
-                <input aria-label="Pesquisar centro" id="center-search" placeholder="Cidade centro" />
-              </div>
+              <select name="center"><option value="">Sem raio</option></select>
             </label>
-            <label>Raio (km)
+            <label>Raio de atuação (km)
               <input max="10000" min="0" name="radius" placeholder="Sem raio" type="number" />
             </label>
-            <label>Situação
-              <select name="status">
-                <option value="all">Todas</option>
-                <option value="active">Ativos</option>
-                <option value="cancelled">Cancelados</option>
-              </select>
-            </label>
-            <label>Base temporal
-              <select name="basis">
-                <option value="first_seen">1ª detecção</option>
-                <option value="event_date">Realização</option>
-                <option value="published_on">Publicação</option>
-              </select>
-            </label>
-            <label>Início
-              <input name="start" required="" type="date" />
-            </label>
-            <label>Fim
-              <input name="end" required="" type="date" />
+            <label>Artista
+              <input name="artist" placeholder="Todos os artistas" />
             </label>
             <div class="filter-buttons">
               <button type="submit">Consultar</button>
             </div>
           </div>
         </form>
+        <div class="filter-breadcrumb-bar" id="filter-summary"></div>
       </details>
 
       <div class="status-strip">
-        <p id="data-scope" role="status"></p>
         <p id="message" role="status"></p>
       </div>
 
-      <div class="kpis kpi-grid" id="kpis">
-        <div class="kpi kpi-card"><span>Indicadores</span><strong>Aguardando…</strong></div>
+      <div aria-label="Artistas por categoria" class="kpis kpi-grid category-grid" id="kpis">
+        <div class="kpi kpi-card"><span>Artistas por categoria</span><strong>Carregando…</strong></div>
       </div>
     </section>
 
     <div class="geo-grid analytics-grid">
       <section class="map-panel" id="geography">
         <div class="map-header">
-          <h2>Mapa de oferta de eventos</h2>
+          <h2>Mapa de concentração e seleção geográfica</h2>
           <div aria-label="Controles do mapa" class="map-toolbar">
+            <button aria-pressed="true" class="multi-toggle" id="multi-city-toggle" type="button" title="Quando ativo, clicar em municípios no mapa soma várias cidades ao comparativo">⊕ Somar cidades no mapa</button>
             <button aria-label="Ampliar mapa" data-map-action="in" type="button">+</button>
             <button aria-label="Reduzir mapa" data-map-action="out" type="button">−</button>
             <button data-map-action="reset" type="button">Enquadrar Brasil</button>
-            <span class="map-hint">Scroll do mouse: zoom · Arraste: mover</span>
+            <span class="map-hint">Scroll: zoom · Clique em UF ou cidades</span>
           </div>
         </div>
         <div class="map-legend">
-          <span><i class="legend-low"></i> Sem registro positivo</span>
+          <span><i class="legend-low"></i> Sem registro no recorte</span>
           <span><i class="legend-muni"></i> Divisas municipais (5.571)</span>
           <span><i class="legend-high"></i> Estados: concentração</span>
-          <span><i class="legend-city"></i> Municípios: volume</span>
-          <span><i class="legend-radius"></i> Municípios no raio (km)</span>
+          <span><i class="legend-city"></i> Municípios: audiência</span>
+          <span><i class="legend-radius"></i> Raio de atuação (km)</span>
         </div>
         <div id="map"></div>
       </section>
 
       <section class="map-side">
-        <h2>Oferta por região</h2>
+        <h2>Desempenho por mídia no recorte</h2>
+        <div class="media-side-grid" id="media-cards"></div>
+        <h2>Artistas por região</h2>
         <div id="regions"></div>
-        <h2>Modalidades em destaque</h2>
-        <div id="modality-bars"></div>
+        <h2>Categorias em crescimento</h2>
+        <div id="category-growth"></div>
       </section>
     </div>
 
     <div class="bi-grid-2">
       <section id="artists-panel">
-        <h2>Ranking de artistas e atrações</h2>
+        <h2>Ranking de artistas e atrações — Crescimento</h2>
         <div class="scroll" id="artists"></div>
       </section>
 
-      <section id="ranking">
-        <h2>Ranking por modalidade</h2>
-        <div class="scroll" id="modalities"></div>
-      </section>
-    </div>
-
-    <div class="bi-grid-3">
-      <section id="territories-panel">
-        <h2>Modalidades por região</h2>
-        <div class="scroll" id="modality-regions"></div>
-        <h2>Concentração por Estado</h2>
-        <div id="states"></div>
-      </section>
-
-      <section id="cities-panel">
-        <h2>Cidades com maior oferta</h2>
+      <section id="localities-panel">
+        <h2>Cidades em destaque — Individual e Consolidado</h2>
+        <div id="consolidated-box"></div>
+        <div class="scroll" id="localities-table"></div>
+        <h2>Maior concentração de audiência</h2>
         <div id="cities"></div>
-        <h2>Submodalidades</h2>
-        <div id="submodalities"></div>
-      </section>
-
-      <section id="platforms-panel">
-        <h2>Oferta por Plataforma</h2>
-        <div id="platforms"></div>
-        <h2>Calendário de realização</h2>
-        <div id="calendar"></div>
-      </section>
-    </div>
-
-    <div class="bi-grid-2">
-      <section id="catalog">
-        <h2>Catálogo de eventos</h2>
-        <div class="scroll" id="events"></div>
-        <div class="page-controls">
-          <button id="prev" type="button">Anterior</button>
-          <span id="page"></span>
-          <button id="next" type="button">Próxima</button>
-        </div>
-      </section>
-
-      <section id="operations">
-        <h2>
-          <span>Central de sincronização</span>
-          <span>
-            <button class="secondary-button" id="refresh" type="button">Atualizar central</button>
-            <button id="sync" type="button">Sincronizar agora</button>
-          </span>
-        </h2>
-        <p id="worker"></p>
-        <p id="sync-msg" role="status"></p>
-        <div class="scroll" id="sources"></div>
-        <h3>Coletas de audiência regional</h3>
-        <div class="scroll" id="audience-jobs"></div>
-        <h3>Alertas de tendências e coleta</h3>
-        <div id="alerts"></div>
-        <h3>Alterações de anúncios para revisão</h3>
-        <div class="scroll" id="conflicts"></div>
       </section>
     </div>
   </main>
@@ -238,7 +175,7 @@
       <h2 id="search-title">Buscar no Radar</h2>
       <button aria-label="Fechar pesquisa" class="secondary-button" id="close-search" type="button">Esc</button>
     </div>
-    <label for="global-search">Artistas, modalidades, regiões e atalhos disponíveis</label>
+    <label for="global-search">Artistas, categorias, regiões, estados e municípios</label>
     <input autocomplete="off" id="global-search" placeholder="Digite para pesquisar" type="search" />
     <div class="palette-results" id="search-results"></div>
   </dialog>

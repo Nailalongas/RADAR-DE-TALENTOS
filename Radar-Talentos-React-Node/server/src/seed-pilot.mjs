@@ -177,20 +177,30 @@ export function seedPilotDatabaseIfEmpty(db) {
     const prevEnd = shiftDay(-30);
 
     const pilotTalents = [
-      { id: 't-alok', name: 'Alok', mod: 'shows', subName: 'Eletrônico' },
-      { id: 't-natiruts', name: 'Natiruts', mod: 'shows', subName: 'MPB' },
-      { id: 't-thiaguinho', name: 'Thiaguinho', mod: 'shows', subName: 'Pagode' },
-      { id: 't-jorge-mateus', name: 'Jorge & Mateus', mod: 'shows', subName: 'Sertanejo' },
-      { id: 't-luan-santana', name: 'Luan Santana', mod: 'shows', subName: 'Sertanejo' },
-      { id: 't-walmir-alencar', name: 'Walmir Alencar', mod: 'shows', subName: 'Gospel' },
-      { id: 't-afonso-padilha', name: 'Afonso Padilha', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-abner-dantas', name: 'Abner Dantas', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-gio-lisboa', name: 'Gio Lisboa', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-emerson-ceara', name: 'Emerson Ceará', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', mod: 'humor', subName: 'Stand-up' },
-      { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança' },
-      { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos' },
+      { id: 't-alok', name: 'Alok', mod: 'shows', subName: 'Eletrônico', catName: 'Cantores' },
+      { id: 't-natiruts', name: 'Natiruts', mod: 'shows', subName: 'MPB', catName: 'Cantores' },
+      { id: 't-thiaguinho', name: 'Thiaguinho', mod: 'shows', subName: 'Pagode', catName: 'Cantores' },
+      { id: 't-jorge-mateus', name: 'Jorge & Mateus', mod: 'shows', subName: 'Sertanejo', catName: 'Cantores' },
+      { id: 't-luan-santana', name: 'Luan Santana', mod: 'shows', subName: 'Sertanejo', catName: 'Cantores' },
+      { id: 't-walmir-alencar', name: 'Walmir Alencar', mod: 'shows', subName: 'Gospel', catName: 'Cantores' },
+      { id: 't-afonso-padilha', name: 'Afonso Padilha', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-abner-dantas', name: 'Abner Dantas', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-gio-lisboa', name: 'Gio Lisboa', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-emerson-ceara', name: 'Emerson Ceará', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
+      { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
+      { id: 't-cortella', name: 'Mario Sergio Cortella', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
+      { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
+      { id: 't-mundo-bita', name: 'Mundo Bita', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
+      { id: 't-cirque-soleil', name: 'Cirque du Soleil', mod: 'teatro', subName: 'Circo', catName: 'Peças de teatro e musicais' },
+      { id: 't-claudia-raia', name: 'Claudia Raia', mod: 'teatro', subName: 'Musical', catName: 'Peças de teatro e musicais' },
+      { id: 't-camila-coutinho', name: 'Camila Coutinho', mod: 'feiras', subName: 'Negócios', catName: 'Influenciadores' },
+      { id: 't-casimiro', name: 'Casimiro Miguel', mod: 'feiras', subName: 'Tecnologia', catName: 'Influenciadores' },
+      { id: 't-kobra', name: 'Eduardo Kobra', mod: 'experiencias', subName: 'Exposições interativas', catName: 'Artistas' },
+      { id: 't-vik-muniz', name: 'Vik Muniz', mod: 'experiencias', subName: 'Exposições interativas', catName: 'Artistas' },
+      { id: 't-henrique-fogaca', name: 'Henrique Fogaça', mod: 'gastronomia', subName: 'Experiências gastronômicas', catName: 'Gastronomia' },
+      { id: 't-helena-rizzo', name: 'Helena Rizzo', mod: 'gastronomia', subName: 'Experiências gastronômicas', catName: 'Gastronomia' },
     ];
 
     db.exec('BEGIN IMMEDIATE');
@@ -201,6 +211,10 @@ export function seedPilotDatabaseIfEmpty(db) {
         const subRow = db.prepare('SELECT id FROM submodalities WHERE modality_id = ? AND name = ?').get(t.mod, t.subName);
         if (subRow) {
           db.prepare('INSERT OR IGNORE INTO talent_submodalities(talent_id, modality_id, submodality_id) VALUES (?, ?, ?)').run(t.id, t.mod, subRow.id);
+        }
+        const catRow = db.prepare('SELECT id FROM categories WHERE name = ?').get(t.catName);
+        if (catRow) {
+          db.prepare('INSERT OR IGNORE INTO talent_categories(talent_id, category_id) VALUES (?, ?)').run(t.id, catRow.id);
         }
       }
       db.exec('COMMIT');
@@ -259,9 +273,19 @@ export function seedPilotDatabaseIfEmpty(db) {
       ['t-gio-lisboa', 0.48, 0.62],
       ['t-emerson-ceara', 0.52, 0.75],
       ['t-palavra-cantada', 0.78, 0.73],
+      ['t-mundo-bita', 0.84, 0.70],
       ['t-leandro-karnal', 0.68, 0.68],
+      ['t-cortella', 0.74, 0.72],
       ['t-walmir-alencar', 0.32, 0.56],
       ['t-abner-dantas', 0.22, 0.46],
+      ['t-cirque-soleil', 0.92, 0.66],
+      ['t-claudia-raia', 0.64, 0.74],
+      ['t-camila-coutinho', 0.88, 0.64],
+      ['t-casimiro', 1.28, 0.69],
+      ['t-kobra', 0.58, 0.67],
+      ['t-vik-muniz', 0.52, 0.72],
+      ['t-henrique-fogaca', 0.76, 0.65],
+      ['t-helena-rizzo', 0.44, 0.63],
     ];
 
     const mediaConfigs = [
@@ -375,7 +399,17 @@ export function seedPilotDatabaseIfEmpty(db) {
       { id: 't-jorge-mateus', name: 'Jorge & Mateus', modalities: ['shows'], base: 910000, now: 1040000, slug: 'jorgeemateus' },
       { id: 't-alok', name: 'Alok', modalities: ['shows'], base: 1200000, now: 1380000, slug: 'alok' },
       { id: 't-leandro-karnal', name: 'Leandro Karnal', modalities: ['palestras'], base: 5400, now: 9200, slug: 'leandrokarnal' },
+      { id: 't-cortella', name: 'Mario Sergio Cortella', modalities: ['palestras'], base: 185000, now: 242000, slug: 'cortella' },
       { id: 't-palavra-cantada', name: 'Palavra Cantada', modalities: ['infantil'], base: 28000, now: 41500, slug: 'palavracantada' },
+      { id: 't-mundo-bita', name: 'Mundo Bita', modalities: ['infantil'], base: 140000, now: 196000, slug: 'mundobita' },
+      { id: 't-cirque-soleil', name: 'Cirque du Soleil', modalities: ['teatro'], base: 95000, now: 148000, slug: 'cirquedusoleil' },
+      { id: 't-claudia-raia', name: 'Claudia Raia', modalities: ['teatro'], base: 112000, now: 154000, slug: 'claudiaraia' },
+      { id: 't-camila-coutinho', name: 'Camila Coutinho', modalities: ['feiras'], base: 68000, now: 108000, slug: 'camilacoutinho' },
+      { id: 't-casimiro', name: 'Casimiro Miguel', modalities: ['feiras'], base: 540000, now: 790000, slug: 'casimiro' },
+      { id: 't-kobra', name: 'Eduardo Kobra', modalities: ['experiencias'], base: 34000, now: 56000, slug: 'kobrastreetart' },
+      { id: 't-vik-muniz', name: 'Vik Muniz', modalities: ['experiencias'], base: 29000, now: 42000, slug: 'vikmuniz' },
+      { id: 't-henrique-fogaca', name: 'Henrique Fogaça', modalities: ['gastronomia'], base: 86000, now: 132000, slug: 'henriquefogaca' },
+      { id: 't-helena-rizzo', name: 'Helena Rizzo', modalities: ['gastronomia'], base: 7400, now: 12900, slug: 'helenarizzo' },
     ];
 
     const curveShapes = {

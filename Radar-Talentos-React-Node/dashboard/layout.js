@@ -59,26 +59,38 @@
     const muniGroup=svg('g',{class:'muni-layer'});
     const values=new Map((r.byState??[]).map(x=>[x.name,x.value])),max=Math.max(1,...values.values());
     const placeValues=new Map((r.places??[]).map(p=>[String(p.code),p.value])),maxPlace=Math.max(1,...placeValues.values());
+    const selectedSet=new Set((r.explicitCities??[]).map(String));
     const hasRadius=Boolean(r.origin&&r.origin.lat!=null&&r.radius!=null&&r.radius>=0);
     const coveredMunis=[],coveredStates=new Set(),coveredRegions=new Set();
+    let framedBox=null;
 
     for(const f of geo?.states?.features??[]){
       const polys=f.geometry.type==='Polygon'?[f.geometry.coordinates]:f.geometry.coordinates;
-      const d=polys.flatMap(poly=>poly.map(ring=>ring.map((p,i)=>(i?'L':'M')+project(p).join(' ')).join(' ')+'Z')).join(' ');
+      const ptsAll=[];
+      const d=polys.flatMap(poly=>poly.map(ring=>ring.map((p,i)=>{const pt=project(p);ptsAll.push(pt);return(i?'L':'M')+pt.join(' ')}).join(' ')+'Z')).join(' ');
       const uf=f.properties.uf,v=values.get(uf);
+      if(r.uf&&r.uf===uf&&ptsAll.length){
+        const xs=ptsAll.map(p=>p[0]),ys=ptsAll.map(p=>p[1]);
+        framedBox=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
+      }
       const clipId='clip-uf-'+uf;
       const cp=svg('clipPath',{id:clipId});
       cp.append(svg('path',{d,'clip-rule':'evenodd'}));
       defs.append(cp);
 
-      const baseFill=v?`rgba(168,85,247,${.16+.58*v/max})`:'#1f1f25';
-      const stPath=svg('path',{d,fill:baseFill,stroke:'#71717a','stroke-width':'1','fill-rule':'evenodd',class:'state-path'});
+      const isActiveUf=r.uf&&r.uf===uf;
+      const baseFill=isActiveUf?'rgba(168,85,247,0.34)':v?`rgba(168,85,247,${.16+.58*v/max})`:'#1f1f25';
+      const stPath=svg('path',{d,fill:baseFill,stroke:isActiveUf?'#e9d5ff':'#71717a','stroke-width':isActiveUf?'1.6':'1','fill-rule':'evenodd',class:'state-path'});
+      const stTitle=svg('title');
+      stTitle.textContent=`Estado: ${uf}`+(v?` · Audiência: ${Number(v).toLocaleString('pt-BR')}`:'')+' (clique para filtrar o estado)';
+      stPath.append(stTitle);
       stPath.addEventListener('click',()=>onSelectUf?.(uf));
       stateGroup.append(stPath);
 
       const ufMuniGroup=svg('g',{'clip-path':`url(#${clipId})`,class:'uf-muni-group'});
       for(const m of cellsByUf.get(uf)??[]){
         const pv=placeValues.get(String(m.code))??0;
+        const isSelected=selectedSet.has(String(m.code));
         let inRadius=false,km=null;
         if(hasRadius){
           km=distKm(r.origin,m);
@@ -90,19 +102,20 @@
           }
         }
         const cls=['muni-cell'];
+        if(isSelected)cls.push('selected-city');
         if(inRadius)cls.push('in-radius');
         if(pv>0)cls.push('has-data');
-        const fill=pv>0?`rgba(234,179,8,${.28+.62*Math.sqrt(pv/maxPlace)})`:inRadius?'rgba(168,85,247,0.34)':'transparent';
+        const fill=isSelected?'rgba(250,204,21,0.72)':pv>0?`rgba(234,179,8,${.28+.62*Math.sqrt(pv/maxPlace)})`:inRadius?'rgba(168,85,247,0.34)':'transparent';
         const cell=svg('path',{d:m.d,fill,class:cls.join(' ')});
         const title=svg('title');
-        title.textContent=`${m.name} / ${m.uf} (${m.region})`+(pv?` · Volume: ${Number(pv).toLocaleString('pt-BR')}`:'')+(km!=null?` · Distância: ${km.toFixed(1)} km`:'');
+        title.textContent=`${m.name} / ${m.uf} (${m.region})`+(pv?` · Audiência: ${Number(pv).toLocaleString('pt-BR')}`:'')+(km!=null?` · Distância: ${km.toFixed(1)} km`:'')+' (clique para selecionar município)';
         cell.append(title);
-        cell.addEventListener('click',e=>{e.stopPropagation();onSelectCity?.(m)});
+        cell.addEventListener('click',e=>{e.stopPropagation();onSelectCity?.(m,e)});
         ufMuniGroup.append(cell);
       }
       muniGroup.append(ufMuniGroup);
 
-      const borderPath=svg('path',{d,fill:'none',stroke:'#a1a1aa','stroke-width':'1','pointer-events':'none','fill-rule':'evenodd',class:'state-border'});
+      const borderPath=svg('path',{d,fill:'none',stroke:isActiveUf?'#e9d5ff':'#a1a1aa','stroke-width':isActiveUf?'1.4':'1','pointer-events':'none','fill-rule':'evenodd',class:'state-border'});
       muniGroup.append(borderPath);
     }
 
@@ -118,11 +131,7 @@
       });
       s.append(svg('polygon',{points:pts.map(p=>p.join(',')).join(' '),fill:'#a855f71a',stroke:'#e9d5ff','stroke-width':'1.4','stroke-dasharray':'5 3','pointer-events':'none',class:'radius-ring'}));
       const xs=pts.map(p=>p[0]),ys=pts.map(p=>p[1]);
-      const minX=Math.max(0,Math.min(...xs)-28),maxX=Math.min(680,Math.max(...xs)+28);
-      const minY=Math.max(0,Math.min(...ys)-24),maxY=Math.min(570,Math.max(...ys)+24);
-      const w=Math.max(45,maxX-minX),h=Math.max(38,w*570/680);
-      const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
-      s.dataset.initialView=[Math.max(0,Math.min(680-w,cx-w/2)),Math.max(0,Math.min(570-h,cy-h/2)),w,h].map(n=>n.toFixed(2)).join(' ');
+      framedBox=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];
 
       coveredMunis.sort((p,q)=>p.km-q.km);
       const box=document.createElement('div');
@@ -135,10 +144,19 @@
       box.append(strong,span);
       target.append(box);
     }
+
+    if(framedBox){
+      const minX=Math.max(0,framedBox[0]-26),maxX=Math.min(680,framedBox[2]+26);
+      const minY=Math.max(0,framedBox[1]-22),maxY=Math.min(570,framedBox[3]+22);
+      const rawW=Math.max(45,maxX-minX),rawH=Math.max(38,maxY-minY);
+      const w=Math.max(rawW,rawH*680/570),h=w*570/680;
+      const cx=(minX+maxX)/2,cy=(minY+maxY)/2;
+      s.dataset.initialView=[Math.max(0,Math.min(680-w,cx-w/2)),Math.max(0,Math.min(570-h,cy-h/2)),w,h].map(n=>n.toFixed(2)).join(' ');
+    }
   };
 
   const host=document.getElementById('map'),status=document.getElementById('connection-status');
-  async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();if(!r.ok||d.ok!==true)throw Error('Backend indisponível');status.textContent='Backend conectado';status.parentElement.dataset.state='online'}catch{status.textContent='Backend indisponível';status.parentElement.dataset.state='offline'}}health();setInterval(health,60000);
+  async function health(){try{const r=await fetch('/api/health',{cache:'no-store'});const d=await r.json();if(!r.ok||d.ok!==true)throw Error('Backend indisponível');if(status){status.textContent='Backend conectado';status.parentElement.dataset.state='online'}}catch{if(status){status.textContent='Backend indisponível';status.parentElement.dataset.state='offline'}}}health();setInterval(health,60000);
   let current=null,base=null,view=null,drag=null,suppress=false;
   function render(){
     if(!current||!view)return;
@@ -158,6 +176,7 @@
     render();
   }
   function attach(){
+    if(!host)return;
     const s=host.querySelector('svg');if(s===current)return;current=s;if(!s)return;
     base=s.getAttribute('viewBox').split(/\s+/).map(Number);
     view=s.dataset.initialView?s.dataset.initialView.split(/\s+/).map(Number):[...base];
@@ -173,11 +192,13 @@
     s.addEventListener('pointerup',end);s.addEventListener('pointercancel',end);
     s.addEventListener('click',e=>{if(suppress){e.preventDefault();e.stopImmediatePropagation()}},true);
   }
-  new MutationObserver(attach).observe(host,{childList:true});attach();
+  if(host){new MutationObserver(attach).observe(host,{childList:true});attach();}
   document.querySelectorAll('[data-map-action]').forEach(b=>b.addEventListener('click',()=>{
     if(!view||!current)return;
-    if(b.dataset.mapAction==='reset'){view=[...base];render();}
-    else{
+    if(b.dataset.mapAction==='reset'){
+      view=[...base];render();
+      if(typeof window.onRadarResetMap==='function')window.onRadarResetMap();
+    }else{
       const rect=current.getBoundingClientRect();
       zoomAt(b.dataset.mapAction==='in'?0.78:1.28,rect.left+rect.width/2,rect.top+rect.height/2);
     }
@@ -189,13 +210,13 @@
  const toggle=document.getElementById('sidebar-toggle');
  if(toggle){toggle.addEventListener('click',()=>document.body.classList.toggle('sidebar-open'));document.querySelectorAll('.sidebar nav a,.sidebar nav button').forEach(el=>el.addEventListener('click',()=>document.body.classList.remove('sidebar-open')));}
  const dialog=document.getElementById('command-palette'),input=document.getElementById('global-search'),results=document.getElementById('search-results'),trigger=document.getElementById('open-search'),form=document.getElementById('filters');
+ if(!dialog||!input||!results||!trigger||!form)return;
  const normalize=s=>s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
  function open(){if(!dialog.open){dialog.showModal();input.value='';render();input.focus()}}
  function render(){const q=normalize(input.value),entries=[];
  for(const a of document.querySelectorAll('.sidebar nav a'))entries.push({label:a.textContent.trim(),kind:'Navegação',run:()=>{location.href=a.href}});
- for(const [name,kind] of [['talent','Artista'],['modality','Modalidade'],['submodality','Submodalidade'],['region','Região'],['uf','Estado'],['city','Município'],['platform','Plataforma']]){const select=form.elements.namedItem(name);if(!(select instanceof HTMLSelectElement))continue;for(const option of select.options){if(!option.value)continue;entries.push({label:option.textContent,kind,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));form.closest('details').open=true;form.requestSubmit()}})}}
- if(q&&form.elements.namedItem('artist'))entries.unshift({label:'Filtrar artista: '+input.value,kind:'Pesquisa no catálogo',run:()=>{form.elements.namedItem('artist').value=input.value.trim();form.closest('details').open=true;form.requestSubmit()}});
- if(q){entries.push({label:'Pesquisar município: '+input.value,kind:'Filtro geográfico',run:()=>{const city=document.getElementById('city-search');form.closest('details').open=true;city.value=input.value.trim();city.dispatchEvent(new Event('input',{bubbles:true}));city.focus()}})}
+ for(const [name,kind] of [['category','Categoria'],['talent','Artista'],['modality','Modalidade'],['submodality','Submodalidade'],['network','Mídia'],['region','Região'],['uf','Estado'],['city','Município'],['platform','Plataforma']]){const select=form.elements.namedItem(name);if(!(select instanceof HTMLSelectElement))continue;for(const option of [...select.options].slice(0,250)){if(!option.value)continue;entries.push({label:option.textContent,kind,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}})}}
+ if(q&&form.elements.namedItem('artist'))entries.unshift({label:'Filtrar artista: '+input.value,kind:'Pesquisa de talento',run:()=>{form.elements.namedItem('artist').value=input.value.trim();const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}});
  results.replaceChildren();for(const entry of entries.filter(e=>!q||normalize(e.label+' '+e.kind).includes(q)).slice(0,30)){const b=document.createElement('button');b.type='button';b.textContent=entry.label;const small=document.createElement('small');small.textContent=entry.kind;b.append(small);b.addEventListener('click',()=>{dialog.close();entry.run()});results.append(b)}if(!results.children.length){const p=document.createElement('p');p.textContent='Nenhum resultado nos dados carregados.';results.append(p)}}
  trigger.addEventListener('click',open);document.getElementById('close-search').addEventListener('click',()=>dialog.close());input.addEventListener('input',render);input.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();results.querySelector('button')?.focus()}});document.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='k'){e.preventDefault();dialog.open?dialog.close():open()}});
  const network=form.elements.namedItem('network');if(network){const urlNet=new URLSearchParams(location.search).get('network');if(urlNet&&[...network.options].some(o=>o.value===urlNet))network.value=urlNet;const buttons=document.querySelectorAll('[data-network]');const update=()=>buttons.forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.network===network.value)));buttons.forEach(b=>b.addEventListener('click',()=>{if(network.value!==b.dataset.network){network.value=b.dataset.network;network.dispatchEvent(new Event('change',{bubbles:true}))}}));network.addEventListener('change',update);update()}
