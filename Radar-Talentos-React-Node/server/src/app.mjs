@@ -1,3 +1,4 @@
+import {commercialInsights} from './commercial-insights.mjs';
 import {commercialQuery} from './commercial.mjs';
 import {regionalDashboard} from './regional-dashboard.mjs';
 import { operationsStatus, runOperations } from './operations.mjs';
@@ -67,6 +68,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         if (!database) { res.writeHead(503).end(); return; }
         res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(audienceStatus(database))); return;
       }
+      if(path==='/api/commercial/insights'){if(!database){res.writeHead(503).end();return;}const result=commercialInsights(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial'){if(!database){res.writeHead(503).end();return;}const result=commercialQuery(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path.startsWith('/api/regional/')){if(!database){res.writeHead(503).end();return;}const result=regionalDashboard(database,path,new URL(req.url,'http://localhost').searchParams);if(result!==undefined){res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}}
       if (path.startsWith('/api/radar/') || path.startsWith('/api/events/')) {

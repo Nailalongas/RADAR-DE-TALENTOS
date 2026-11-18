@@ -170,13 +170,25 @@ export function seedPilotDatabaseIfEmpty(db) {
 
   const audienceCount = db.prepare('SELECT count(*) AS n FROM regional_audience').get().n;
   if (audienceCount === 0) {
+    const shiftDay = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
+    const curStart = shiftDay(-29);
+    const curEnd = shiftDay(0);
+    const prevStart = shiftDay(-59);
+    const prevEnd = shiftDay(-30);
+
     const pilotTalents = [
       { id: 't-alok', name: 'Alok', mod: 'shows', subName: 'Eletrônico' },
       { id: 't-natiruts', name: 'Natiruts', mod: 'shows', subName: 'MPB' },
       { id: 't-thiaguinho', name: 'Thiaguinho', mod: 'shows', subName: 'Pagode' },
       { id: 't-jorge-mateus', name: 'Jorge & Mateus', mod: 'shows', subName: 'Sertanejo' },
       { id: 't-luan-santana', name: 'Luan Santana', mod: 'shows', subName: 'Sertanejo' },
+      { id: 't-walmir-alencar', name: 'Walmir Alencar', mod: 'shows', subName: 'Gospel' },
       { id: 't-afonso-padilha', name: 'Afonso Padilha', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-abner-dantas', name: 'Abner Dantas', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-gio-lisboa', name: 'Gio Lisboa', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-emerson-ceara', name: 'Emerson Ceará', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', mod: 'humor', subName: 'Stand-up' },
+      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', mod: 'humor', subName: 'Stand-up' },
       { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança' },
       { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos' },
     ];
@@ -236,14 +248,20 @@ export function seedPilotDatabaseIfEmpty(db) {
     ];
 
     const talentMultipliers = [
-      ['t-alok', 1.55],
-      ['t-jorge-mateus', 1.42],
-      ['t-luan-santana', 1.35],
-      ['t-thiaguinho', 1.22],
-      ['t-natiruts', 1.05],
-      ['t-afonso-padilha', 0.96],
-      ['t-palavra-cantada', 0.78],
-      ['t-leandro-karnal', 0.68],
+      ['t-alok', 1.55, 0.78],
+      ['t-jorge-mateus', 1.42, 0.80],
+      ['t-luan-santana', 1.35, 0.81],
+      ['t-thiaguinho', 1.22, 0.76],
+      ['t-natiruts', 1.05, 0.82],
+      ['t-afonso-padilha', 0.96, 0.72],
+      ['t-rodrigo-marques', 0.65, 0.71],
+      ['t-jonathan-nemer', 0.68, 0.74],
+      ['t-gio-lisboa', 0.48, 0.62],
+      ['t-emerson-ceara', 0.52, 0.75],
+      ['t-palavra-cantada', 0.78, 0.73],
+      ['t-leandro-karnal', 0.68, 0.68],
+      ['t-walmir-alencar', 0.32, 0.56],
+      ['t-abner-dantas', 0.22, 0.46],
     ];
 
     const mediaConfigs = [
@@ -258,23 +276,62 @@ export function seedPilotDatabaseIfEmpty(db) {
       { network: 'TikTok', metric: 'followers', source: 'TikTok for Artists', quality: 'verified', factor: 0.48 },
     ];
 
+    const networkCityWeights = {
+      Instagram: { '4106902': 3.4, '3550308': 0.9, '5208707': 3.6, '4113700': 2.6, '4209102': 2.1 },
+      YouTube: { '3550308': 1.5, '4106902': 1.9, '2611606': 2.8, '5208707': 2.4, '2927408': 1.7 },
+      Spotify: { '3106200': 3.2, '3550308': 0.95, '4314902': 2.7, '4106902': 1.8, '5300108': 1.6 },
+      TikTok: { '5208707': 5.8, '3550308': 0.85, '2304400': 3.1, '4106902': 1.6, '2611606': 2.2 },
+    };
+
+    const networkGrowthBoost = {
+      Instagram: { '4106902': 0.56, '4113700': 0.58 },
+      YouTube: { '3550308': 0.76, '2611606': 0.64 },
+      Spotify: { '3106200': 0.62, '4113700': 0.57 },
+      TikTok: { '5208707': 0.43, '2304400': 0.55 },
+    };
+
     for (const cfg of mediaConfigs) {
-      for (const [talentId, mult] of talentMultipliers) {
+      const cityW = networkCityWeights[cfg.network] || {};
+      const growthW = networkGrowthBoost[cfg.network] || {};
+      for (const [talentId, mult, prevRatio] of talentMultipliers) {
         importRegionalReport(db, {
           talent_id: talentId,
           network: cfg.network,
           metric: cfg.metric,
-          period_start: '2026-10-18',
-          period_end: '2026-11-17',
+          period_start: prevStart,
+          period_end: prevEnd,
           source: cfg.source,
           quality: cfg.quality,
-          report_ref: `relatorio-${cfg.network.toLowerCase()}-${cfg.metric}-2026-11`,
+          report_ref: `relatorio-${cfg.network.toLowerCase()}-${cfg.metric}-anterior`,
           authorization_ref: 'Relatório oficial autorizado',
           coverage: 'complete',
-          rows: regionalCities.map(([code, base], idx) => ({
-            municipality_code: code,
-            value: Math.max(150, Math.round(base * mult * cfg.factor * (1 + ((idx % 4) - 1.5) * 0.07))),
-          })),
+          rows: regionalCities.map(([code, base], idx) => {
+            const w = cityW[code] || 1.0;
+            const pRatio = growthW[code] || prevRatio;
+            return {
+              municipality_code: code,
+              value: Math.max(100, Math.round(base * w * mult * pRatio * cfg.factor * (1 + ((idx % 4) - 1.5) * 0.06))),
+            };
+          }),
+        });
+        importRegionalReport(db, {
+          talent_id: talentId,
+          network: cfg.network,
+          metric: cfg.metric,
+          period_start: curStart,
+          period_end: curEnd,
+          source: cfg.source,
+          quality: cfg.quality,
+          report_ref: `relatorio-${cfg.network.toLowerCase()}-${cfg.metric}-atual`,
+          authorization_ref: 'Relatório oficial autorizado',
+          coverage: 'complete',
+          rows: regionalCities.map(([code, base], idx) => {
+            const w = cityW[code] || 1.0;
+            return {
+              municipality_code: code,
+              value: Math.max(150, Math.round(base * w * mult * cfg.factor * (1 + ((idx % 4) - 1.5) * 0.07))),
+            };
+          }),
         });
       }
     }
