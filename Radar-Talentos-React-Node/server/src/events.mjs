@@ -46,7 +46,7 @@ export function importEvents(db,{platform,observed_on,source,items},onCommit=nul
 export function eventQuery(db,path,p){
  if(path==='/api/events/municipalities'){const q=(p.get('q')??'').trim().slice(0,100),uf=p.get('uf')??'';return db.prepare("SELECT code,name,uf FROM municipalities WHERE (?='' OR uf=?) ORDER BY name").all(uf,uf).filter(m=>!q||norm(m.name).includes(norm(q))||m.code===q).slice(0,100);}
  if(path==='/api/events/conflicts')return db.prepare('SELECT platform_id,external_id,proposed_title,municipality_code,venue,event_date,observed_on FROM event_listing_conflicts ORDER BY observed_on DESC LIMIT 100').all();
- if(path==='/api/events/platforms')return db.prepare('SELECT p.*,max(i.observed_on) last_import,count(i.id) imports FROM ticket_platforms p LEFT JOIN event_imports i ON i.platform_id=p.id GROUP BY p.id ORDER BY p.name').all();
+ if(path==='/api/events/platforms')return db.prepare(`SELECT p.*,max(i.observed_on) last_import,count(i.id) imports,sum(CASE WHEN i.source LIKE 'Amostra manual de anúncios públicos%' THEN i.records ELSE 0 END) manual_records FROM ticket_platforms p LEFT JOIN event_imports i ON i.platform_id=p.id GROUP BY p.id ORDER BY p.name`).all();
  if(!['/api/events/trends','/api/events/artists'].includes(path))return undefined;
  const get=k=>p.get(k)||'',offset=get('offset')?Number(get('offset')):0,status=get('status'),start=get('start'),end=get('end'),basis=get('basis')||'first_seen',platform=get('platform'),mod=get('modality'),sub=get('submodality'),region=get('region'),uf=get('uf'),city=get('city'),center=get('center'),radius=get('radius');
  if(!Number.isSafeInteger(offset)||offset<0||offset>1e7||status&&!['active','cancelled','all'].includes(status))fail('Paginação ou situação inválida');

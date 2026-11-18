@@ -1,0 +1,18 @@
+{
+  "platform": "ticket360",
+  "observed_on": "2026-11-18",
+  "source": "Amostra manual de anúncios públicos, consulta em 2026-11-18; cobertura parcial; sem confirmação de venda ou disponibilidade atual.",
+  "items": [
+    {
+      "external_id": "34357",
+      "title": "Corrida de Natal 2026",
+      "municipality_code": "3550308",
+      "venue": "Parque CERET",
+      "event_date": "2026-12-20",
+      "modality_id": "corridas",
+      "artists": [],
+      "status": "unknown",
+      "url": "https://www.ticket360.com.br/evento/34357/ingressos-para-corrida-de-natal"
+    }
+  ]
+}

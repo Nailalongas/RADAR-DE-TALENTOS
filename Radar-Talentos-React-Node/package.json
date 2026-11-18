@@ -27,7 +27,8 @@
     "ops:setup": "node --experimental-sqlite scripts/setup-events.mjs",
     "radar:check": "node --check dashboard/dashboard.js",
     "build:react": "vite build",
-    "regional:import": "node --experimental-sqlite scripts/import-regional.mjs"
+    "regional:import": "node --experimental-sqlite scripts/import-regional.mjs",
+    "data:observed": "node --experimental-sqlite scripts/load-observed.mjs"
   },
   "dependencies": {
     "react": "^19.0.0",

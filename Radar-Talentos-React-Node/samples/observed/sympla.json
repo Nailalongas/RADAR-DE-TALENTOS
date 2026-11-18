@@ -1,0 +1,218 @@
+{
+  "platform": "sympla",
+  "observed_on": "2026-11-18",
+  "source": "Amostra manual de anúncios públicos, consulta em 2026-11-18; cobertura parcial; sem confirmação de venda ou disponibilidade atual.",
+  "items": [
+    {
+      "external_id": "3596614",
+      "title": "CURITYBA - MOSTRA DE TEATRO MPT",
+      "municipality_code": "4106902",
+      "venue": "Teatro SESI Centro",
+      "event_date": "2026-11-16",
+      "modality_id": "teatro",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/curityba-mostra-de-teatro-mpt/3596614",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3650715",
+      "title": "FAMÍLIA MADRIGAL E O SUMIÇO DA VELA",
+      "municipality_code": "4106902",
+      "venue": "Teatro Barracão EnCena",
+      "event_date": "2026-11-28",
+      "modality_id": "infantil",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/familia-madrigal-e-o-sumico-da-vela/3650715",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3624924",
+      "title": "1º Festival Dante | Espetáculos",
+      "municipality_code": "4106902",
+      "venue": "Espaço Excêntrico Mauro Zanatta",
+      "event_date": "2026-12-03",
+      "modality_id": "teatro",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/lgc/3624924",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3645925",
+      "title": "UM SHOW DIFERENTE - Netto Tomaz e Jansen Serra",
+      "municipality_code": "3550308",
+      "venue": "Violeta Comedy Bar",
+      "event_date": "2026-12-11",
+      "modality_id": "humor",
+      "artists": [
+        "Netto Tomaz",
+        "Jansen Serra"
+      ],
+      "url": "https://www.sympla.com.br/evento/um-show-diferente-netto-tomaz-e-jansen-serra/3645925",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3647836",
+      "title": "PABLO CALAIS em TODO MUNDO ODEIA O ROBSON",
+      "municipality_code": "3550308",
+      "venue": "Violeta Comedy Bar",
+      "event_date": "2026-12-13",
+      "modality_id": "humor",
+      "artists": [
+        "Pablo Calais"
+      ],
+      "url": "https://www.sympla.com.br/evento/lgc/3647836",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3645596",
+      "title": "SHOW BEAR com MAU TAVARES e DIDI OLIVEIRA",
+      "municipality_code": "3550308",
+      "venue": "Violeta Comedy Bar",
+      "event_date": "2026-12-12",
+      "modality_id": "humor",
+      "artists": [
+        "Mau Tavares",
+        "Didi Oliveira"
+      ],
+      "url": "https://www.sympla.com.br/evento/lgc/3645596",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3615239",
+      "title": "Romeu & Julieta",
+      "municipality_code": "2611606",
+      "venue": "Teatro Luiz Mendonça",
+      "event_date": "2026-11-18",
+      "modality_id": "teatro",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/lgc/3615239",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3645898",
+      "title": "ABNER DANTAS EM RECIFE/PE",
+      "municipality_code": "2611606",
+      "venue": "Garage 66 Pub Motorcycle - Recife - Boa Viagem",
+      "event_date": "2026-12-16",
+      "modality_id": "humor",
+      "artists": [
+        "Abner Dantas"
+      ],
+      "url": "https://www.sympla.com.br/evento/abner-dantas-em-recife-pe/3645898",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3581882",
+      "title": "Flavio Andradde | Como Sobreviver À Própria Família?",
+      "municipality_code": "2611606",
+      "venue": "Cine Teatro do Parque",
+      "event_date": "2026-12-19",
+      "modality_id": "humor",
+      "artists": [
+        "Flavio Andradde"
+      ],
+      "url": "https://www.sympla.com.br/evento/flavio-andradde-em-recife-pe-como-sobreviver-a-propria-familia/3581882",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3588630",
+      "title": "Grupo Terra - 34 anos",
+      "municipality_code": "2611606",
+      "venue": "A Casinha",
+      "event_date": "2026-12-12",
+      "modality_id": "shows",
+      "artists": [
+        "Grupo Terra"
+      ],
+      "url": "https://www.sympla.com.br/evento/lgc/3588630",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3609411",
+      "title": "Tony Nogueira - Tributo a Emílio Santiago",
+      "municipality_code": "2611606",
+      "venue": "Teatro Hermilo Borba Filho",
+      "event_date": "2026-12-05",
+      "modality_id": "shows",
+      "artists": [
+        "Tony Nogueira"
+      ],
+      "url": "https://www.sympla.com.br/evento/tony-nogueira-tributo-a-emilio-santiago/3609411",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3586270",
+      "title": "5º DGPIS | Dia de Gestão de Projetos de Impacto Social",
+      "municipality_code": "5300108",
+      "venue": "Instituto Bancobrás",
+      "event_date": "2026-12-15",
+      "modality_id": "palestras",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/lgc/3586270",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3658954",
+      "title": "Todo Santo Samba Ep.1",
+      "municipality_code": "5300108",
+      "venue": "Oficina Bar Lago Sul",
+      "event_date": "2026-12-12",
+      "modality_id": "shows",
+      "artists": [],
+      "url": "https://www.sympla.com.br/evento/todo-santo-samba-ep-1/3658954",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3654795",
+      "title": "Antônio II - Mundano (último show do Ano)",
+      "municipality_code": "1302603",
+      "venue": "Atelieco: Experiência e Afeto.",
+      "event_date": "2026-12-05",
+      "modality_id": "shows",
+      "artists": [
+        "Antônio II"
+      ],
+      "url": "https://www.sympla.com.br/evento/lgc/3654795",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3647252",
+      "title": "Casa da Estrela recebe Sophia Chablau, Ava Rocha e Negro Leo",
+      "municipality_code": "1302603",
+      "venue": "Muiraquitã Espaço Cultural",
+      "event_date": "2026-12-05",
+      "modality_id": "shows",
+      "artists": [
+        "Sophia Chablau",
+        "Ava Rocha",
+        "Negro Leo"
+      ],
+      "url": "https://www.sympla.com.br/evento/lgc/3647252",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3642618",
+      "title": "Walmir Alencar - Acústico - Som do Céu",
+      "municipality_code": "1302603",
+      "venue": "Manaus Plaza Shopping & Centro de Convenções",
+      "event_date": "2026-12-20",
+      "modality_id": "shows",
+      "artists": [
+        "Walmir Alencar"
+      ],
+      "url": "https://www.sympla.com.br/evento/walmir-alencar-acustico-som-do-ceu-o-elo-que-nos-une/3642618",
+      "status": "unknown"
+    },
+    {
+      "external_id": "3566383",
+      "title": "GOSPEL RUN 5KM",
+      "municipality_code": "3550308",
+      "venue": "Parque Ecológico do Tietê",
+      "event_date": "2026-12-20",
+      "modality_id": "corridas",
+      "artists": [],
+      "status": "unknown",
+      "url": "https://www.sympla.com.br/evento/gospel-run-5km/3566383?mp_rloc=Esportes&mp_rtil=Todos+os+eventos"
+    }
+  ]
+}

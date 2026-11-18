@@ -77,9 +77,14 @@ export function seedPilotDatabaseIfEmpty(db) {
       '../../src/domain/uf-malha.json',
       import.meta.url
     );
+    const observedMunisPath = new URL(
+      '../../samples/observed/municipalities.json',
+      import.meta.url
+    );
 
     const rawMunicipios = JSON.parse(readFileSync(municipiosPath, 'utf8'));
     const rawStates = JSON.parse(readFileSync(malhaPath, 'utf8'));
+    const observedMunis = JSON.parse(readFileSync(observedMunisPath, 'utf8'));
 
     for (const f of rawStates.features || []) {
       const code = String(
@@ -103,6 +108,8 @@ export function seedPilotDatabaseIfEmpty(db) {
            region = excluded.region,
            lat = excluded.lat,
            lon = excluded.lon,
+           source = excluded.source,
+           version = excluded.version,
            coordinate_source = excluded.coordinate_source,
            coordinate_version = excluded.coordinate_version`
       );
@@ -121,6 +128,21 @@ export function seedPilotDatabaseIfEmpty(db) {
           'Localidades: 2026-11-18; malhas: 2025',
           'Malha Territorial — centro da caixa envolvente (aproximado)',
           '2025'
+        );
+      }
+
+      for (const m of observedMunis.items || []) {
+        insertMuni.run(
+          m.code,
+          m.name,
+          m.uf,
+          m.region,
+          m.lat,
+          m.lon,
+          observedMunis.source,
+          observedMunis.version,
+          observedMunis.coordinate_source,
+          observedMunis.coordinate_version
         );
       }
 
@@ -184,6 +206,14 @@ export function seedPilotDatabaseIfEmpty(db) {
       ['3170206', 59000],  // Uberlândia - MG (Sudeste)
       ['3205309', 54000],  // Vitória - ES (Sudeste)
       ['4106902', 162000], // Curitiba - PR (Sul)
+      ['4100400', 22000],  // Almirante Tamandaré - PR (Sul)
+      ['4101804', 28000],  // Araucária - PR (Sul)
+      ['4104204', 29500],  // Campo Largo - PR (Sul)
+      ['4105805', 34000],  // Colombo - PR (Sul)
+      ['4107652', 24000],  // Fazenda Rio Grande - PR (Sul)
+      ['4119152', 31000],  // Pinhais - PR (Sul)
+      ['4119509', 21500],  // Piraquara - PR (Sul)
+      ['4125506', 46000],  // São José dos Pinhais - PR (Sul)
       ['4113700', 64000],  // Londrina - PR (Sul)
       ['4115200', 56500],  // Maringá - PR (Sul)
       ['4119905', 38200],  // Ponta Grossa - PR (Sul)
@@ -251,427 +281,12 @@ export function seedPilotDatabaseIfEmpty(db) {
 
   const eventsCount = db.prepare('SELECT count(*) AS n FROM events').get().n;
   if (eventsCount === 0) {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    const prevMonthStr = new Date(Date.now() - 20 * 86400000)
-      .toISOString()
-      .slice(0, 10);
-
-    const batches = [
-      {
-        platform: 'ticketmaster',
-        observed_on: todayStr,
-        source: 'Ticketmaster Discovery API / Acesso autorizado',
-        items: [
-          {
-            external_id: 'tm-cwb-natiruts',
-            title: 'Show Natiruts Leve com Você em Curitiba',
-            venue: 'Pedreira Paulo Leminski',
-            municipality_code: '4106902',
-            event_date: '2026-11-28',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Natiruts', id: 'tm-art-natiruts' }],
-            url: 'https://www.ticketmaster.com.br/event/natiruts-curitiba',
-          },
-          {
-            external_id: 'tm-sp-natiruts',
-            title: 'Show Natiruts Leve com Você em São Paulo',
-            venue: 'Allianz Parque',
-            municipality_code: '3550308',
-            event_date: '2026-12-05',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Natiruts', id: 'tm-art-natiruts' }],
-            url: 'https://www.ticketmaster.com.br/event/natiruts-sp',
-          },
-          {
-            external_id: 'tm-poa-natiruts',
-            title: 'Show Natiruts Leve com Você em Porto Alegre',
-            venue: 'Auditório Araújo Vianna',
-            municipality_code: '4314902',
-            event_date: '2026-12-12',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Natiruts', id: 'tm-art-natiruts' }],
-            url: 'https://www.ticketmaster.com.br/event/natiruts-poa',
-          },
-          {
-            external_id: 'tm-sp-alok',
-            title: 'Show Alok Aurea Tour São Paulo',
-            venue: 'Allianz Parque',
-            municipality_code: '3550308',
-            event_date: '2026-12-19',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Alok', id: 'tm-art-alok' }],
-            url: 'https://www.ticketmaster.com.br/event/alok-sp',
-          },
-          {
-            external_id: 'tm-bh-alok',
-            title: 'Show Alok Aurea Tour Belo Horizonte',
-            venue: 'Mineirão',
-            municipality_code: '3106200',
-            event_date: '2026-12-26',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Alok', id: 'tm-art-alok' }],
-            url: 'https://www.ticketmaster.com.br/event/alok-bh',
-          },
-          {
-            external_id: 'tm-bsb-alok',
-            title: 'Show Alok Aurea Tour Brasília',
-            venue: 'Arena BRB Mané Garrincha',
-            municipality_code: '5300108',
-            event_date: '2026-12-28',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Alok', id: 'tm-art-alok' }],
-            url: 'https://www.ticketmaster.com.br/event/alok-bsb',
-          },
-          {
-            external_id: 'tm-gyn-jm',
-            title: 'Show Sertanejo Jorge & Mateus Único Goiânia',
-            venue: 'Estádio Serra Dourada',
-            municipality_code: '5208707',
-            event_date: '2026-12-15',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: [{ name: 'Jorge & Mateus', id: 'tm-art-jm' }],
-            url: 'https://www.ticketmaster.com.br/event/jorge-mateus-goiania',
-          },
-        ],
-      },
-      {
-        platform: 'eventim',
-        observed_on: todayStr,
-        source: 'Catálogo autorizado Eventim',
-        items: [
-          {
-            external_id: 'evt-sp-jm',
-            title: 'Show Sertanejo Jorge & Mateus Único São Paulo',
-            venue: 'Arena Anhembi',
-            municipality_code: '3550308',
-            event_date: '2026-12-20',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Jorge & Mateus'],
-            url: 'https://www.eventim.com.br/evento/jorge-mateus-sp',
-          },
-          {
-            external_id: 'evt-cwb-luan',
-            title: 'Show Sertanejo Luan Santana City 2.0 Curitiba',
-            venue: 'Expotrade Pinhais Arena',
-            municipality_code: '4106902',
-            event_date: '2026-12-18',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Luan Santana'],
-            url: 'https://www.eventim.com.br/evento/luan-curitiba',
-          },
-          {
-            external_id: 'evt-rj-musical',
-            title: 'Teatro Musical O Fantasma da Ópera Rio de Janeiro',
-            venue: 'Theatro Municipal',
-            municipality_code: '3304557',
-            event_date: '2026-12-11',
-            published_on: todayStr,
-            modality_id: 'teatro',
-            url: 'https://www.eventim.com.br/evento/fantasma-opera-rj',
-          },
-        ],
-      },
-      {
-        platform: 'diskingressos',
-        observed_on: todayStr,
-        source: 'Catálogo autorizado Disk Ingressos',
-        items: [
-          {
-            external_id: 'dsk-cwb-natiruts',
-            title: 'Show Natiruts Leve com Você em Curitiba',
-            venue: 'Pedreira Paulo Leminski',
-            municipality_code: '4106902',
-            event_date: '2026-11-28',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Natiruts'],
-            url: 'https://www.diskingressos.com.br/evento/natiruts-curitiba',
-          },
-          {
-            external_id: 'dsk-cwb-afonso',
-            title: 'Afonso Padilha Stand up Ninguém Tá Puro Curitiba',
-            venue: 'Teatro Positivo',
-            municipality_code: '4106902',
-            event_date: '2026-11-22',
-            published_on: todayStr,
-            modality_id: 'humor',
-            artists: ['Afonso Padilha'],
-            url: 'https://www.diskingressos.com.br/evento/afonso-padilha',
-          },
-          {
-            external_id: 'dsk-jlle-afonso',
-            title: 'Afonso Padilha Stand up Joinville',
-            venue: 'Teatro Juarez Machado',
-            municipality_code: '4209102',
-            event_date: '2026-11-29',
-            published_on: todayStr,
-            modality_id: 'humor',
-            artists: ['Afonso Padilha'],
-            url: 'https://www.diskingressos.com.br/evento/afonso-joinville',
-          },
-          {
-            external_id: 'dsk-pg-standup',
-            title: 'Afonso Padilha Stand up Ponta Grossa',
-            venue: 'Cine Teatro Ópera',
-            municipality_code: '4119905',
-            event_date: '2026-12-05',
-            published_on: todayStr,
-            modality_id: 'humor',
-            artists: ['Afonso Padilha'],
-            url: 'https://www.diskingressos.com.br/evento/standup-pg',
-          },
-          {
-            external_id: 'dsk-lda-standup',
-            title: 'Afonso Padilha Stand up Londrina',
-            venue: 'Teatro Ouro Verde',
-            municipality_code: '4113700',
-            event_date: '2026-12-07',
-            published_on: todayStr,
-            modality_id: 'humor',
-            artists: ['Afonso Padilha'],
-            url: 'https://www.diskingressos.com.br/evento/standup-londrina',
-          },
-        ],
-      },
-      {
-        platform: 'ticketsports',
-        observed_on: todayStr,
-        source: 'Calendário autorizado Ticket Sports',
-        items: [
-          {
-            external_id: 'tsp-cwb-maratona',
-            title: 'Maratona Internacional de Curitiba 42km',
-            venue: 'Praça Nossa Senhora de Salete',
-            municipality_code: '4106902',
-            event_date: '2026-11-29',
-            published_on: todayStr,
-            modality_id: 'corridas',
-            url: 'https://www.ticketsports.com.br/e/maratona-curitiba',
-          },
-          {
-            external_id: 'tsp-jlle-meia',
-            title: 'Meia Maratona de Joinville 21km',
-            venue: 'Centreventos Cau Hansen',
-            municipality_code: '4209102',
-            event_date: '2026-12-06',
-            published_on: todayStr,
-            modality_id: 'corridas',
-            url: 'https://www.ticketsports.com.br/e/meia-joinville',
-          },
-          {
-            external_id: 'tsp-fln-trail',
-            title: 'Trail Run Ilha da Magia Florianópolis',
-            venue: 'Lagoa da Conceição',
-            municipality_code: '4205407',
-            event_date: '2026-12-13',
-            published_on: todayStr,
-            modality_id: 'corridas',
-            url: 'https://www.ticketsports.com.br/e/trail-florianopolis',
-          },
-          {
-            external_id: 'tsp-for-corrida',
-            title: 'Corrida de Rua Beira Mar 10km Fortaleza',
-            venue: 'Avenida Beira Mar',
-            municipality_code: '2304400',
-            event_date: '2026-12-14',
-            published_on: todayStr,
-            modality_id: 'corridas',
-            url: 'https://www.ticketsports.com.br/e/corrida-fortaleza',
-          },
-          {
-            external_id: 'tsp-sp-corrida',
-            title: 'Corrida de Rua Internacional de São Silvestre 15km',
-            venue: 'Avenida Paulista',
-            municipality_code: '3550308',
-            event_date: '2026-12-31',
-            published_on: todayStr,
-            modality_id: 'corridas',
-            url: 'https://www.ticketsports.com.br/e/sao-silvestre-sp',
-          },
-        ],
-      },
-      {
-        platform: 'sympla',
-        observed_on: todayStr,
-        source: 'Relatório autorizado Sympla',
-        items: [
-          {
-            external_id: 'sym-poa-karnal',
-            title: 'Palestra Leandro Karnal Liderança e Futuro Porto Alegre',
-            venue: 'Auditório Araújo Vianna',
-            municipality_code: '4314902',
-            event_date: '2026-11-26',
-            published_on: todayStr,
-            modality_id: 'palestras',
-            artists: ['Leandro Karnal'],
-            url: 'https://www.sympla.com.br/evento/karnal-poa',
-          },
-          {
-            external_id: 'sym-cwb-karnal',
-            title: 'Palestra Leandro Karnal Liderança em Curitiba',
-            venue: 'Teatro Guaíra',
-            municipality_code: '4106902',
-            event_date: '2026-12-03',
-            published_on: todayStr,
-            modality_id: 'palestras',
-            artists: ['Leandro Karnal'],
-            url: 'https://www.sympla.com.br/evento/karnal-curitiba',
-          },
-          {
-            external_id: 'sym-rec-karnal',
-            title: 'Palestra Leandro Karnal Liderança em Recife',
-            venue: 'Teatro Guararapes',
-            municipality_code: '2611606',
-            event_date: '2026-12-10',
-            published_on: todayStr,
-            modality_id: 'palestras',
-            artists: ['Leandro Karnal'],
-            url: 'https://www.sympla.com.br/evento/karnal-recife',
-          },
-          {
-            external_id: 'sym-sp-karnal',
-            title: 'Congresso de Tecnologia e Liderança São Paulo',
-            venue: 'WTC Events Center',
-            municipality_code: '3550308',
-            event_date: '2026-12-16',
-            published_on: todayStr,
-            modality_id: 'palestras',
-            artists: ['Leandro Karnal'],
-            url: 'https://www.sympla.com.br/evento/karnal-sp',
-          },
-          {
-            external_id: 'sym-bh-gastro',
-            title: 'Festival de Gastronomia Mineira e Degustação de Vinho',
-            venue: 'Expominas',
-            municipality_code: '3106200',
-            event_date: '2026-12-04',
-            published_on: todayStr,
-            modality_id: 'gastronomia',
-            url: 'https://www.sympla.com.br/evento/gastronomia-bh',
-          },
-        ],
-      },
-      {
-        platform: 'ingresse',
-        observed_on: todayStr,
-        source: 'Relatório autorizado Ingresse',
-        items: [
-          {
-            external_id: 'ing-rj-thiaguinho',
-            title: 'Show Pagode Tardezinha Thiaguinho Rio de Janeiro',
-            venue: 'Parque Olímpico',
-            municipality_code: '3304557',
-            event_date: '2026-12-19',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Thiaguinho'],
-            url: 'https://www.ingresse.com/tardezinha-rj',
-          },
-          {
-            external_id: 'ing-fln-thiaguinho',
-            title: 'Show Pagode Thiaguinho Tardezinha Florianópolis',
-            venue: 'Stage Music Park',
-            municipality_code: '4205407',
-            event_date: '2026-12-27',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Thiaguinho'],
-            url: 'https://www.ingresse.com/tardezinha-fln',
-          },
-          {
-            external_id: 'ing-ssa-thiaguinho',
-            title: 'Show Pagode Thiaguinho Tardezinha Salvador',
-            venue: 'Arena Fonte Nova',
-            municipality_code: '2927408',
-            event_date: '2026-12-21',
-            published_on: todayStr,
-            modality_id: 'shows',
-            artists: ['Thiaguinho'],
-            url: 'https://www.ingresse.com/tardezinha-ssa',
-          },
-          {
-            external_id: 'ing-bel-festival',
-            title: 'Festival Amazônico de Música em Belém',
-            venue: 'Espaço Náutico Marine Club',
-            municipality_code: '1501402',
-            event_date: '2026-12-22',
-            published_on: todayStr,
-            modality_id: 'festivais',
-            artists: ['Alok', 'Natiruts'],
-            url: 'https://www.ingresse.com/festival-belem',
-          },
-        ],
-      },
-      {
-        platform: 'uhuu',
-        observed_on: todayStr,
-        source: 'Catálogo autorizado Uhuu',
-        items: [
-          {
-            external_id: 'uhuu-sp-infantil',
-            title: 'Espetáculo Infantil Palavra Cantada 30 Anos São Paulo',
-            venue: 'Teatro Bradesco',
-            municipality_code: '3550308',
-            event_date: '2026-11-30',
-            published_on: todayStr,
-            modality_id: 'infantil',
-            artists: ['Palavra Cantada'],
-            url: 'https://uhuu.com/evento/palavra-cantada-sp',
-          },
-          {
-            external_id: 'uhuu-cwb-infantil',
-            title: 'Espetáculo Infantil Palavra Cantada Curitiba',
-            venue: 'Teatro Guaíra',
-            municipality_code: '4106902',
-            event_date: '2026-12-06',
-            published_on: todayStr,
-            modality_id: 'infantil',
-            artists: ['Palavra Cantada'],
-            url: 'https://uhuu.com/evento/palavra-cantada-cwb',
-          },
-          {
-            external_id: 'uhuu-man-teatro',
-            title: 'Teatro Musical Clássico no Teatro Amazonas Manaus',
-            venue: 'Teatro Amazonas',
-            municipality_code: '1302603',
-            event_date: '2026-12-08',
-            published_on: todayStr,
-            modality_id: 'teatro',
-            artists: ['Palavra Cantada'],
-            url: 'https://uhuu.com/evento/teatro-amazonas',
-          },
-        ],
-      },
-      {
-        platform: 'blueticket',
-        observed_on: prevMonthStr,
-        source: 'Catálogo autorizado Blueticket (período anterior)',
-        items: [
-          {
-            external_id: 'blue-fln-show-prev',
-            title: 'Show de Rock Acústico Florianópolis',
-            venue: 'Stage Music Park',
-            municipality_code: '4205407',
-            event_date: '2026-11-10',
-            published_on: prevMonthStr,
-            modality_id: 'shows',
-            artists: ['Natiruts'],
-            url: 'https://www.blueticket.com.br/evento/rock-fln',
-          },
-        ],
-      },
-    ];
-
-    for (const batch of batches) {
+    for (const name of ['sympla', 'eventim', 'ticketsports', 'ticket360']) {
+      const batchPath = new URL(
+        `../../samples/observed/${name}.json`,
+        import.meta.url
+      );
+      const batch = JSON.parse(readFileSync(batchPath, 'utf8'));
       importEvents(db, batch);
     }
   }

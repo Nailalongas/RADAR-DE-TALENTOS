@@ -1,3 +1,5 @@
+> Atualização: primeira carga de anúncios públicos observados (amostra parcial). Veja [Ativação de dados reais](docs/dados-reais.md). A execução dos dois painéis nativos usa `npm start`.
+
 # Radar de Talentos — catálogo nacional de eventos
 
 **Versão com foco exclusivo em eventos e atrações anunciadas.** O painel principal e as rotinas operacionais não coletam nem usam métricas de redes sociais. As tabelas e o código das fases anteriores permanecem para preservação do histórico, mas não participam do fluxo atual.

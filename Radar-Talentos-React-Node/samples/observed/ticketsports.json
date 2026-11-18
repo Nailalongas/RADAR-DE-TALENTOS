@@ -1,0 +1,29 @@
+{
+  "platform": "ticketsports",
+  "observed_on": "2026-11-18",
+  "source": "Amostra manual de anúncios públicos, consulta em 2026-11-18; cobertura parcial; sem confirmação de venda ou disponibilidade atual.",
+  "items": [
+    {
+      "external_id": "88030",
+      "title": "GOSPEL RUN 5KM",
+      "municipality_code": "3550308",
+      "venue": "Parque Ecológico do Tietê",
+      "event_date": "2026-12-20",
+      "modality_id": "corridas",
+      "artists": [],
+      "status": "unknown",
+      "url": "https://www.ticketsports.com.br/e/GOSPEL%2BRUN%2B5KM-88030"
+    },
+    {
+      "external_id": "88368",
+      "title": "Corrida de Natal 2026",
+      "municipality_code": "3550308",
+      "venue": "Parque CERET",
+      "event_date": "2026-12-20",
+      "modality_id": "corridas",
+      "artists": [],
+      "status": "unknown",
+      "url": "https://cdn.ticketsports.com.br/ticketagora/arquivos/evento/88368/68f391d71c974f778e4253fa13db048c639245630380128270.pdf"
+    }
+  ]
+}
