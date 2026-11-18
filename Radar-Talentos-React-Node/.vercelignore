@@ -1,4 +1,4 @@
-legado/
-data/
-.npm-cache/
-tests/
+node_modules
+data/*.sqlite*
+data/backups
+.git

@@ -11,10 +11,11 @@ let sharedServerPromise = null;
 function getServerlessServer() {
   if (!sharedServerPromise) {
     sharedServerPromise = Promise.resolve().then(() => {
+      const isServerless = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
       const defaultPath = databasePath();
-      const targetPath = existsSync(defaultPath)
+      const targetPath = !isServerless && existsSync(defaultPath)
         ? defaultPath
-        : join(tmpdir(), 'radar-vercel-v12.sqlite');
+        : join(tmpdir(), 'radar-vercel-v13.sqlite');
       const db = openDatabase(targetPath);
       seedPilotDatabaseIfEmpty(db);
       return createRadarServer({
