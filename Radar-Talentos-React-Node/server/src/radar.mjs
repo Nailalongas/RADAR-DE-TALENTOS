@@ -9,7 +9,7 @@ export function distanceKm(a,b) {
 const date = s => /^\d{4}-\d{2}-\d{2}$/.test(s||'') && !isNaN(Date.parse(s)) && new Date(s).toISOString().slice(0,10)===s;
 export function radarQuery(db,path,p) {
   const get=k=>p.get(k)||'';
-  if(path==='/api/radar/geography') {const asset=db.prepare('SELECT * FROM geographic_assets WHERE id=?').get('states');return {total:db.prepare('SELECT count(*) n FROM municipalities').get().n,coordinates:db.prepare('SELECT count(*) n FROM municipalities WHERE lat IS NOT NULL').get().n,states:asset?JSON.parse(asset.geojson):null,version:asset?.version??null};}
+  if(path==='/api/radar/geography') {const asset=db.prepare('SELECT * FROM geographic_assets WHERE id=?').get('states');return {total:db.prepare('SELECT count(*) n FROM municipalities').get().n,coordinates:db.prepare('SELECT count(*) n FROM municipalities WHERE lat IS NOT NULL').get().n,states:asset?JSON.parse(asset.geojson):null,version:asset?.version??null,municipalities:db.prepare('SELECT code,name,uf,region,lat,lon FROM municipalities WHERE lat IS NOT NULL AND lon IS NOT NULL').all()};}
   if(path==='/api/radar/reports') return db.prepare('SELECT network,metric,period_start,period_end,source,quality,count(*) records FROM regional_audience GROUP BY network,metric,period_start,period_end,source,quality ORDER BY period_end DESC').all();
   if(path==='/api/radar/modalities') return db.prepare('SELECT * FROM modalities ORDER BY name').all().map(m=>({...m,submodalities:db.prepare('SELECT id,name FROM submodalities WHERE modality_id=? ORDER BY name').all(m.id)}));
   if(path==='/api/radar/municipalities') {
