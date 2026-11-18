@@ -84,7 +84,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         res.writeHead(400).end();
         return;
       }
-      const file = resolve(dist, path === '/' ? 'index.html' : '.' + path);
+      const file = resolve(dist, path === '/' ? (eventsOnly&&!combinedDashboard?'events.html':'index.html') : '.' + path);
       if (!file.startsWith(dist + sep)) {
         res.writeHead(403).end();
         return;

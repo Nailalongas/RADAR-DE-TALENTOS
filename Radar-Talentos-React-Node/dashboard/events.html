@@ -1,0 +1,159 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Radar de Talentos | Tendências das Plataformas de Eventos</title>
+<link rel="stylesheet" href="/style.css">
+<script defer src="/dashboard.js"></script>
+<script defer src="/layout.js"></script>
+</head>
+<body class="dashboard">
+<header class="sidebar" id="sidebar">
+  <div class="sidebar-top">
+    <a class="brand" href="/">
+      <span class="radar-mark" aria-hidden="true">◎</span>
+      <span>RADAR DE<br><b>TALENTOS</b></span>
+    </a>
+    <button type="button" class="sidebar-toggle" id="sidebar-toggle" aria-label="Alternar menu">☰</button>
+  </div>
+  <p class="brand-sub">Inteligência de mercado</p>
+  <button type="button" class="search-trigger" id="open-search" aria-label="Pesquisar">
+    <span>⌕ Pesquisar</span>
+    <kbd>Ctrl K</kbd>
+  </button>
+  <nav aria-label="Navegação principal">
+    <span class="nav-label">PAINÉIS</span>
+    <a href="/">◉ &nbsp; Radar de Talentos</a>
+    <a href="/commercial.html">↗ &nbsp; Oportunidade Comercial</a>
+    <a href="/audience.html">⌖ &nbsp; Audiência geográfica</a>
+    <a aria-current="page" href="/events.html">▥ &nbsp; Eventos &amp; Tendências</a>
+    <span class="nav-label">NESTA TELA</span>
+    <a href="#overview">▣ &nbsp; Visão geral</a>
+    <a href="#geografia">⌖ &nbsp; Mapa &amp; Regiões</a>
+    <a href="#ranking">★ &nbsp; Artistas &amp; Atrações</a>
+    <a href="#catalog">▤ &nbsp; Catálogo de eventos</a>
+    <a href="#operations">⟳ &nbsp; Sincronização</a>
+    <span class="nav-label">ANÁLISES</span>
+    <a href="/audience.html?network=YouTube">▶ &nbsp; YouTube</a>
+    <a href="/audience.html?network=Instagram">◈ &nbsp; Instagram</a>
+    <a href="/audience.html?network=Spotify">◉ &nbsp; Spotify</a>
+    <a href="/audience.html?network=TikTok">♪ &nbsp; TikTok</a>
+  </nav>
+  <div class="sidebar-status" role="status" aria-live="polite">
+    <span class="status-dot" aria-hidden="true"></span>
+    <span id="connection-status">Verificando backend...</span>
+  </div>
+</header>
+
+<main class="dashboard-main">
+<section class="overview" id="overview">
+  <div class="topbar">
+    <div>
+      <span class="eyebrow">Eventos ao vivo / Conectores verificados</span>
+      <h1>Tendências das plataformas de eventos</h1>
+      <p>Recorte operacional por plataforma, situação, modalidade, submodalidade, região, estado, município e raio.</p>
+    </div>
+    <button type="button" id="sync">Sincronizar fontes</button>
+  </div>
+
+  <div class="kpis" id="kpis" aria-label="Indicadores principais"></div>
+
+  <details class="filter-drawer" open>
+    <summary>Filtros de pesquisa e recorte territorial</summary>
+    <form id="filters" class="filter-panel">
+      <div class="filters">
+        <label>Plataforma<select name="platform"><option value="">Todas</option></select></label>
+        <label>Situação<select name="status"><option value="active">Ativos</option><option value="cancelled">Cancelados</option><option value="all">Todos</option></select></label>
+        <label>Base temporal<select name="dateField"><option value="event">Data do evento</option><option value="collected">Data da coleta</option></select></label>
+        <label>Modalidade<select name="modality"><option value="">Todas</option></select></label>
+        <label>Submodalidade<select name="submodality"><option value="">Todas</option></select></label>
+        <label>Região<select name="region"><option value="">Brasil inteiro</option><option>Norte</option><option>Nordeste</option><option>Centro-Oeste</option><option>Sudeste</option><option>Sul</option></select></label>
+        <label>Estado<select name="uf"><option value="">Todos</option></select></label>
+        <label>Município<select name="city"><option value="">Todos</option></select></label>
+        <label>Raio km<input name="radius" type="number" min="0" max="5000" step="10" placeholder="Opcional"></label>
+        <label>Artista ou evento<input name="artist" type="search" placeholder="Nome verificado"></label>
+        <label>Início<input name="dateFrom" type="date"></label>
+        <label>Fim<input name="dateTo" type="date"></label>
+      </div>
+      <div class="filter-actions">
+        <button type="submit">Aplicar filtros</button>
+      </div>
+    </form>
+  </details>
+  <p id="message" role="status"></p>
+</section>
+
+<div class="geo-grid analytics-grid" id="geografia">
+  <section class="map-panel">
+    <div class="section-head">
+      <div>
+        <h2>Mapa de oferta de eventos</h2>
+        <p>Estados e municípios com eventos reais no recorte selecionado. Use o scroll do mouse para zoom e ver as divisas dos 5.571 municípios.</p>
+      </div>
+      <div class="map-tools" role="group" aria-label="Controles do mapa">
+        <button type="button" data-map-action="in" aria-label="Aproximar mapa">+</button>
+        <button type="button" data-map-action="out" aria-label="Afastar mapa">−</button>
+        <button type="button" data-map-action="reset">Reiniciar</button>
+      </div>
+    </div>
+    <div id="map" class="map" role="img" aria-label="Mapa do Brasil com oferta de eventos"></div>
+  </section>
+  <div class="side-charts">
+    <section><h2>Oferta por região</h2><div id="region-chart"></div></section>
+    <section><h2>Oferta por plataforma</h2><div id="platform-chart"></div></section>
+  </div>
+</div>
+
+<div class="detail-grid" id="ranking">
+  <section>
+    <div class="section-head">
+      <div>
+        <h2>Ranking de artistas e atrações</h2>
+        <p>Ordenado pela quantidade de eventos verificados no filtro atual.</p>
+      </div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>#</th><th>Artista / atração</th><th>Modalidade</th><th>Eventos</th><th>Municípios</th><th>Plataformas</th></tr></thead><tbody id="artist-rows"></tbody></table></div>
+  </section>
+  <section>
+    <h2>Modalidades, municípios e série temporal</h2>
+    <div id="modality-chart"></div>
+    <div id="city-chart"></div>
+    <div id="series-chart"></div>
+  </section>
+</div>
+
+<div class="detail-grid">
+  <section id="operations">
+    <div class="section-head">
+      <div>
+        <h2>Central de sincronização</h2>
+        <p id="sync-summary">Verificando situação dos conectores...</p>
+      </div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Plataforma</th><th>Modo</th><th>Situação</th><th>Última execução</th><th>Registros</th><th>Detalhe</th></tr></thead><tbody id="connector-rows"></tbody></table></div>
+  </section>
+
+  <section id="catalog">
+    <div class="section-head">
+      <div>
+        <h2>Catálogo de eventos</h2>
+        <p>Registros auditáveis com origem e link externo.</p>
+      </div>
+    </div>
+    <div class="scroll"><table><thead><tr><th>Data</th><th>Evento</th><th>Artista</th><th>Modalidade</th><th>Local</th><th>Plataforma</th><th>Situação</th></tr></thead><tbody id="event-rows"></tbody></table></div>
+  </section>
+</div>
+</main>
+
+<dialog id="command-palette" class="command-palette" aria-label="Pesquisa rápida">
+  <div class="palette-box">
+    <div class="palette-head">
+      <input id="global-search" type="search" placeholder="Pesquisar artista, estado, município, modalidade ou painel..." autocomplete="off">
+      <button type="button" id="close-search" aria-label="Fechar pesquisa">Esc</button>
+    </div>
+    <div id="search-results" class="palette-results" role="listbox"></div>
+  </div>
+</dialog>
+</body>
+</html>
