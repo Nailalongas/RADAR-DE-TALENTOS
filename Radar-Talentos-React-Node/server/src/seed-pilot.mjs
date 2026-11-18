@@ -354,8 +354,10 @@ export function seedPilotDatabaseIfEmpty(db) {
     const shiftDay = (n) => new Date(Date.now() + n * 86400000).toISOString().slice(0, 10);
     const d0 = shiftDay(0);
     const d7 = shiftDay(-7);
-    const d15 = shiftDay(-15);
+    const d14 = shiftDay(-14);
+    const d21 = shiftDay(-21);
     const d30 = shiftDay(-30);
+    const d45 = shiftDay(-45);
     const d60 = shiftDay(-60);
     const d90 = shiftDay(-90);
 
@@ -376,21 +378,26 @@ export function seedPilotDatabaseIfEmpty(db) {
       { id: 't-palavra-cantada', name: 'Palavra Cantada', modalities: ['infantil'], base: 28000, now: 41500, slug: 'palavracantada' },
     ];
 
-    const series = (b, n, factor = 1) => {
-      const v90 = Math.max(100, Math.round(b * 0.72 * factor));
-      const v60 = Math.max(100, Math.round(b * 0.86 * factor));
-      const v30 = Math.max(100, Math.round(b * factor));
-      const v15 = Math.max(100, Math.round((b + (n - b) * 0.48) * factor));
-      const v7 = Math.max(100, Math.round((b + (n - b) * 0.76) * factor));
-      const v0 = Math.max(100, Math.round(n * factor));
-      return [
-        [d90, v90],
-        [d60, v60],
-        [d30, v30],
-        [d15, v15],
-        [d7, v7],
-        [d0, v0],
-      ];
+    const curveShapes = {
+      YouTube:   [0.74, 0.81, 0.88, 1.00, 1.12, 1.19, 1.38, 1.52],
+      Instagram: [0.68, 0.79, 0.91, 1.00, 1.24, 1.46, 1.63, 1.88],
+      Spotify:   [0.71, 0.77, 0.89, 1.00, 1.08, 1.34, 1.58, 1.74],
+      TikTok:    [0.62, 0.70, 0.83, 1.00, 1.16, 1.54, 1.92, 2.23],
+    };
+
+    const series = (b, n, factor = 1, net = 'YouTube') => {
+      const shape = curveShapes[net] || curveShapes.YouTube;
+      const growthRatio = n / Math.max(1, b);
+      const scale = (idx) => {
+        const s = shape[idx];
+        if (idx <= 3) return b * s * factor;
+        const t = (s - 1.0) / (shape[7] - 1.0);
+        const netBoost = net === 'TikTok' ? 1.18 : net === 'Instagram' ? 1.04 : net === 'Spotify' ? 0.94 : 0.82;
+        const targetNow = b * (1 + (growthRatio - 1) * netBoost);
+        return (b + (targetNow - b) * t) * factor;
+      };
+      const days = [d90, d60, d45, d30, d21, d14, d7, d0];
+      return days.map((dt, idx) => [dt, Math.max(100, Math.round(scale(idx)))]);
     };
 
     const batch = {
@@ -406,19 +413,19 @@ export function seedPilotDatabaseIfEmpty(db) {
             url: `https://www.youtube.com/@${a.slug}`,
             identity_source: 'Canal oficial verificado',
             snapshots: [
-              ...series(a.base, a.now, 1.0).map(([dt, val]) => ({
+              ...series(a.base, a.now, 1.0, 'YouTube').map(([dt, val]) => ({
                 metric: 'subscribers',
                 observed_on: dt,
                 value: val,
                 source: 'YouTube Official Channel',
               })),
-              ...series(a.base, a.now, 14.5).map(([dt, val]) => ({
+              ...series(a.base, a.now, 14.5, 'YouTube').map(([dt, val]) => ({
                 metric: 'views',
                 observed_on: dt,
                 value: val,
                 source: 'YouTube Official Channel',
               })),
-              ...series(a.base, a.now, 0.85).map(([dt, val]) => ({
+              ...series(a.base, a.now, 0.85, 'YouTube').map(([dt, val]) => ({
                 metric: 'likes',
                 observed_on: dt,
                 value: val,
@@ -432,19 +439,19 @@ export function seedPilotDatabaseIfEmpty(db) {
             url: `https://www.instagram.com/${a.slug}`,
             identity_source: 'Perfil oficial verificado',
             snapshots: [
-              ...series(a.base, a.now, 1.15).map(([dt, val]) => ({
+              ...series(a.base, a.now, 1.15, 'Instagram').map(([dt, val]) => ({
                 metric: 'followers',
                 observed_on: dt,
                 value: val,
                 source: 'Instagram Insights Autorizado',
               })),
-              ...series(a.base, a.now, 8.2).map(([dt, val]) => ({
+              ...series(a.base, a.now, 8.2, 'Instagram').map(([dt, val]) => ({
                 metric: 'views',
                 observed_on: dt,
                 value: val,
                 source: 'Instagram Insights Autorizado',
               })),
-              ...series(a.base, a.now, 0.65).map(([dt, val]) => ({
+              ...series(a.base, a.now, 0.65, 'Instagram').map(([dt, val]) => ({
                 metric: 'likes',
                 observed_on: dt,
                 value: val,
@@ -458,19 +465,19 @@ export function seedPilotDatabaseIfEmpty(db) {
             url: `https://open.spotify.com/artist/${a.slug}`,
             identity_source: 'Perfil de artista verificado',
             snapshots: [
-              ...series(a.base, a.now, 0.92).map(([dt, val]) => ({
+              ...series(a.base, a.now, 1.32, 'Spotify').map(([dt, val]) => ({
                 metric: 'monthly_listeners',
                 observed_on: dt,
                 value: val,
                 source: 'Spotify for Artists',
               })),
-              ...series(a.base, a.now, 0.54).map(([dt, val]) => ({
+              ...series(a.base, a.now, 0.54, 'Spotify').map(([dt, val]) => ({
                 metric: 'followers',
                 observed_on: dt,
                 value: val,
                 source: 'Spotify for Artists',
               })),
-              ...series(a.base, a.now, 18.0).map(([dt, val]) => ({
+              ...series(a.base, a.now, 18.0, 'Spotify').map(([dt, val]) => ({
                 metric: 'streams',
                 observed_on: dt,
                 value: val,
@@ -484,19 +491,19 @@ export function seedPilotDatabaseIfEmpty(db) {
             url: `https://www.tiktok.com/@${a.slug}`,
             identity_source: 'Conta oficial verificada',
             snapshots: [
-              ...series(a.base, a.now, 1.25).map(([dt, val]) => ({
+              ...series(a.base, a.now, 1.25, 'TikTok').map(([dt, val]) => ({
                 metric: 'followers',
                 observed_on: dt,
                 value: val,
                 source: 'TikTok for Artists',
               })),
-              ...series(a.base, a.now, 21.0).map(([dt, val]) => ({
+              ...series(a.base, a.now, 21.0, 'TikTok').map(([dt, val]) => ({
                 metric: 'views',
                 observed_on: dt,
                 value: val,
                 source: 'TikTok for Artists',
               })),
-              ...series(a.base, a.now, 1.4).map(([dt, val]) => ({
+              ...series(a.base, a.now, 1.4, 'TikTok').map(([dt, val]) => ({
                 metric: 'likes',
                 observed_on: dt,
                 value: val,
