@@ -1,14 +1,93 @@
 /* Somente Home/Audiência. Não altera o CSS global nem os demais painéis. */
-.talent-home #kpis { grid-template-columns:repeat(auto-fit,minmax(125px,1fr)); }
-.talent-home #kpis .kpi { text-align:left;color:var(--text);font:inherit;min-height:75px;padding:10px;background:var(--panel); }
-.talent-home #kpis .kpi[aria-pressed=true] { border-color:var(--accent);background:#35204c; }
-.talent-home #audience-kpis { margin-top:10px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); }
-.talent-home #category-scope { font-size:12px;margin:8px 0; }
-.talent-home #selected-cities { display:flex;flex-wrap:wrap;gap:4px; }
-.talent-home #selected-cities button { padding:3px 6px;font-size:11px;background:#35204c; }
-.talent-home #map .municipality-point { cursor:pointer; }
-.talent-home #map .municipality-point[aria-pressed=true] { stroke:#fafafa;stroke-width:2; }
-.talent-home #selection-summary { max-height:250px;overflow:auto; }
-.talent-home .detail-grid > section { min-width:0; }
-.talent-home #growth { max-height:300px; }
-@media(max-width:700px){.talent-home #kpis {grid-template-columns:repeat(2,minmax(0,1fr));}}
+.talent-home #kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.talent-home #kpis .kpi {
+  text-align: left;
+  color: var(--text);
+  font: inherit;
+  min-height: 76px;
+  max-height: none;
+  height: auto;
+  padding: 10px 12px;
+  background: var(--panel);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 3px;
+}
+.talent-home #kpis .kpi strong {
+  font-size: 19px;
+  line-height: 1.1;
+}
+.talent-home #kpis .kpi small {
+  font-size: 10px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.talent-home #kpis .kpi[aria-pressed=true] {
+  border-color: var(--accent);
+  background: #35204c;
+  box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.35);
+}
+.talent-home #kpis .kpi[aria-pressed=true] small {
+  color: #e9d5ff;
+}
+.talent-home #audience-kpis {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.talent-home #category-scope {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0 2px;
+}
+.talent-home #selected-cities {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.talent-home #selected-cities button {
+  padding: 2px 7px;
+  height: 22px;
+  font-size: 10.5px;
+  background: #35204c;
+  border-radius: 999px;
+}
+.talent-home #map .municipality-point {
+  cursor: pointer;
+}
+.talent-home #map .municipality-point[aria-pressed=true] {
+  stroke: #fafafa;
+  stroke-width: 2;
+}
+.talent-home #selection-summary {
+  max-height: 240px;
+  overflow: auto;
+}
+.talent-home .detail-grid > section {
+  min-width: 0;
+}
+.talent-home #growth {
+  max-height: 260px;
+}
+@media (max-width: 1100px) {
+  .talent-home #kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 700px) {
+  .talent-home #kpis,
+  .talent-home #audience-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

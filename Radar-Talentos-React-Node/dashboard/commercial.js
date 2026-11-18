@@ -485,9 +485,8 @@ function renderCompatibilityResult(d){
 
   const left=el('div',null,banner);
   const cats=[...(d.artist.categories||[]),...(d.artist.modalities||[])];
-  el('small',`Simulação de Viabilidade Comercial · ${d.city.name} / ${d.city.uf} (${d.city.region}) · Raio ${d.radiusKm} km`,left);
-  el('h3',`${d.artist.name} em ${d.city.name} / ${d.city.uf} — ${d.verdict.label}`,left);
-  if(cats.length)el('p',`Categorias / Modalidades: ${[...new Set(cats)].join(' · ')}`,left);
+  el('small',`Simulação de Viabilidade Comercial · ${d.city.name} / ${d.city.uf} (${d.city.region}) · Raio ${d.radiusKm} km (${d.catchment.totalMunicipalities} municípios)`+(cats.length?` · ${[...new Set(cats)].join(' / ')}`:''),left);
+  el('h3',`${d.artist.name} × ${d.city.name} / ${d.city.uf} — ${d.verdict.label}`,left);
   el('p',d.verdict.recommendation,left);
 
   const badge=el('div',null,banner);
@@ -495,78 +494,80 @@ function renderCompatibilityResult(d){
   el('strong',d.score!=null?`${d.score}/100`:'—',badge);
   el('small','Score Comercial',badge);
 
-  // 7 Variáveis de Decisão para Vendas
-  const varsGrid=el('div',null,compatResult);
-  varsGrid.className='compat-vars-grid';
+  const execGrid=el('div',null,compatResult);
+  execGrid.className='compat-exec-grid';
+
+  // Coluna Esquerda: 7 Variáveis de Decisão para Vendas (Compactas)
+  const leftBox=el('div',null,execGrid);
+  leftBox.className='compat-panel-box';
+  el('h4','7 Variáveis de Viabilidade para Vendas',leftBox);
+  const varsList=el('div',null,leftBox);
+  varsList.className='compat-vars-list';
   for(const v of d.variables||[]){
-    const vc=el('div',null,varsGrid);
-    vc.className='compat-var-card';
-    const vh=el('div',null,vc);
+    const vr=el('div',null,varsList);
+    vr.className='compat-var-row';
+    const vh=el('div',null,vr);
     vh.className='compat-var-head';
     el('span',v.label,vh);
     el('b',v.score!=null?`${v.score}/100`:'—',vh);
-    const bar=el('div',null,vc);
+    const bar=el('div',null,vr);
     bar.className='compat-var-bar';
     const fill=el('div',null,bar);
     fill.className='compat-var-fill';
     fill.style.width=`${v.score!=null?Math.max(4,v.score):0}%`;
-    el('small',v.summary,vc);
+    el('small',v.summary,vr);
   }
 
-  // 4 Mídias do Artista na Cidade e na Bacia Regional (Raio)
-  const mediaGrid=el('div',null,compatResult);
-  mediaGrid.className='city-grid';
+  // Coluna Direita: Tabela Compacta das 4 Mídias na Cidade e no Raio + Polos Vizinhos + Argumentário
+  const rightBox=el('div',null,execGrid);
+  rightBox.className='compat-panel-box';
+  el('h4',`Desempenho nas 4 Mídias em ${d.city.name}/${d.city.uf} e no Raio de ${d.radiusKm} km`,rightBox);
+
+  const tbl=el('table',null,rightBox);
+  tbl.className='compat-media-table';
+  const thead=el('thead',null,tbl),trH=el('tr',null,thead);
+  for(const h of ['Mídia','Nacional',`Em ${d.city.name}/${d.city.uf}`,`Raio ${d.radiusKm} km`,`Tração (${d.days}d)`])el('th',h,trH);
+  const tbody=el('tbody',null,tbl);
+
+  let topCatchmentCities=[];
   for(const m of d.media||[]){
-    const mc=card(mediaGrid,m.network);
-    const nat=m.national;
-    const ca=m.cityAudience;
-    const ra=m.radiusAudience;
-    el('small',`Nacional · ${labels[m.nationalMetric]??m.nationalMetric}`,mc);
-    el('strong',nat?number(nat.value):'—',mc);
-    if(nat){
-      const np=el('p',`Tração (${d.days}d): ${signed(nat.growth)} (${nat.growth_pct==null?'—':signed(nat.growth_pct)+'%'})`,mc);
-      np.className=nat.growth>0?'positive':nat.growth<0?'negative':'';
-      el('small',nat.freshness_label||nat.source,mc);
-    }
-    el('small',`Na praça: ${d.city.name}/${d.city.uf}`,mc);
-    if(ca?.present){
-      el('p',`${number(ca.value)} (${regionalLabels[ca.metric]??ca.metric}) · #${ca.rank} de ${ca.totalCities} cidades (${ca.sharePct}% da base regional)`,mc);
-      if(ca.growthPct!=null){
-        const cg=el('small',`Crescimento em ${d.city.name}: ${signed(ca.growth)} (${signed(ca.growthPct)}%)`,mc);
-        cg.className=ca.growth>0?'positive':ca.growth<0?'negative':'';
-      }
-    }else{
-      el('small',`Sem observação isolada em ${d.city.name}/${d.city.uf} neste relatório.`,mc);
-    }
+    const tr=el('tr',null,tbody);
+    const nat=m.national,ca=m.cityAudience,ra=m.radiusAudience;
+    const tdNet=el('td',m.network,tr);
+    if(neonPalette[m.network])tdNet.style.color=neonPalette[m.network].color;
+    tdNet.style.fontWeight='700';
+    el('td',nat?`${number(nat.value)} (${labels[m.nationalMetric]??m.nationalMetric})`:'—',tr);
+    el('td',ca?.present?`${number(ca.value)} (#${ca.rank} · ${ca.sharePct}%)`:'Sem registro',tr);
+    el('td',ra?.totalValue!=null?`${number(ra.totalValue)} (${ra.municipalitiesWithData} cid.)`:'—',tr);
+    const growthVal=ca?.growthPct??ra?.growthPct??nat?.growth_pct;
+    const tdG=el('td',growthVal!=null?`${signed(growthVal)}%`:'—',tr);
+    if(growthVal>0)tdG.className='positive';
+    else if(growthVal<0)tdG.className='negative';
+    if(ra?.cities?.length>topCatchmentCities.length)topCatchmentCities=ra.cities;
+  }
 
-    if(ra&&ra.totalValue!=null){
-      el('small',`Bacia no raio de ${d.radiusKm} km (${ra.municipalitiesWithData} de ${ra.totalCatchmentMunicipalities} cidades com dados)`,mc);
-      el('p',`Total regional somado: ${number(ra.totalValue)} (${ra.sharePct??0}% da audiência regional)`,mc);
-      if(ra.cities?.length>1){
-        const chips=el('div',null,mc);
-        chips.className='compat-catchment-chips';
-        for(const c of ra.cities.slice(0,6)){
-          const ch=el('button',`${c.name}/${c.uf}: ${number(c.value)}${c.distance_km>0?` (${c.distance_km}km)`:''}`,chips);
-          ch.type='button';
-          ch.className='compat-city-chip';
-          ch.title=`Simular diretamente em ${c.name}/${c.uf}`;
-          ch.onclick=()=>{
-            document.querySelector('#compat-city').value=`${c.name} / ${c.uf}`;
-            runCompatibilitySimulator(d.artist.id);
-          };
-        }
-      }
+  if(topCatchmentCities.length>1){
+    el('small',`Cidades-polo na bacia de ${d.radiusKm} km (clique para simular individualmente):`,rightBox);
+    const chips=el('div',null,rightBox);
+    chips.className='compat-catchment-chips';
+    for(const c of topCatchmentCities.slice(0,8)){
+      const ch=el('button',`${c.name}/${c.uf}: ${number(c.value)}${c.distance_km>0?` (${c.distance_km}km)`:''}`,chips);
+      ch.type='button';
+      ch.className='compat-city-chip';
+      ch.onclick=()=>{
+        document.querySelector('#compat-city').value=`${c.name} / ${c.uf}`;
+        runCompatibilitySimulator(d.artist.id);
+      };
     }
   }
 
-  // Argumentário Executivo para Vendas
   if(d.salesPitch?.length){
-    const pitchBox=el('div',null,compatResult);
+    const pitchBox=el('div',null,rightBox);
     pitchBox.className='compat-pitch-box';
     const head=el('div',null,pitchBox);
     head.className='city-header';
-    el('strong',`Argumentário Comercial para Vendas — ${d.artist.name} em ${d.city.name}/${d.city.uf} (+${d.radiusKm} km)`,head);
-    const copyBtn=el('button','Copiar Argumentário para Vendas',head);
+    el('strong',`Argumentário Comercial para Vendas`,head);
+    const copyBtn=el('button','Copiar Argumentário',head);
     copyBtn.type='button';
     copyBtn.onclick=async()=>{
       const text=[
@@ -575,7 +576,7 @@ function renderCompatibilityResult(d){
         `Recomendação: ${d.verdict.recommendation}`,
         ...d.salesPitch.map(line=>`• ${line}`)
       ].join('\n');
-      try{await navigator.clipboard.writeText(text);copyBtn.textContent='Copiado!';setTimeout(()=>copyBtn.textContent='Copiar Argumentário para Vendas',2000);}catch{}
+      try{await navigator.clipboard.writeText(text);copyBtn.textContent='Copiado!';setTimeout(()=>copyBtn.textContent='Copiar Argumentário',2000);}catch{}
     };
     const ul=el('ul',null,pitchBox);
     for(const item of d.salesPitch){

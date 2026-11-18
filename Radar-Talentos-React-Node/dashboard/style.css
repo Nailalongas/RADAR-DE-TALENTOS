@@ -34,18 +34,21 @@ body {
   color: var(--text);
 }
 
-.dashboard {
+.dashboard,
+.talent-home {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   min-height: 100vh;
 }
 
-.dashboard-main {
-  padding: 10px 14px 14px;
+.dashboard-main,
+.dashboard > main,
+.talent-home > main {
+  padding: 12px 16px 18px;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
   max-width: 1920px;
 }
 
@@ -297,9 +300,9 @@ input[type="range"] {
   gap: 6px;
 }
 
-.topbar {
-  min-height: 50px;
-  max-height: 60px;
+.topbar,
+.topline {
+  min-height: 44px;
   padding: 6px 12px;
   background: var(--panel);
   border: 1px solid var(--border);
@@ -458,14 +461,15 @@ kbd {
 }
 
 .filter-panel form {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .filters {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(76px, 1fr));
-  gap: 5px 6px;
-  align-items: end;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px 10px;
+  align-items: start;
+  margin-bottom: 8px;
 }
 
 .filter-Dual {
