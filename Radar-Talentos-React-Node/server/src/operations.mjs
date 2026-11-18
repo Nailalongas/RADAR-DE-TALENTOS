@@ -25,6 +25,7 @@ export function validateConfig(c){
    if(j.adapter==='file'&&(typeof j.file!=='string'||!j.file.trim()))throw Error('Arquivo obrigatório');
    if(j.adapter==='https'){const u=new URL(j.url);if(u.protocol!=='https:'||u.username||u.password||u.port||u.hash||!(c.allowedHosts??[]).includes(u.hostname))throw Error('Feed HTTPS não autorizado');}
    if(j.adapter==='ingresse'&&(!(c.allowedHosts??[]).includes(j.host)||!j.organizationId))throw Error('Host ou organização Ingresse ausente');
+   if(j.splitByState!==undefined&&typeof j.splitByState!=='boolean')throw Error('Particionamento inválido');
    if(j.maxPages!==undefined&&(!Number.isInteger(j.maxPages)||j.maxPages<1||j.maxPages>20))throw Error('Limite de páginas inválido');
    if(['ticketmaster','sympla'].includes(j.adapter)&&!j.tokenEnv||j.adapter==='ingresse'&&!j.tokenEnv&&!j.tokenFile||j.adapter==='youtube'&&!j.tokenEnv&&!j.refreshTokenEnv)throw Error('Referência de credencial obrigatória');
    if(j.adapter==='youtube'&&j.refreshTokenEnv&&(!j.clientIdEnv||!j.clientSecretEnv))throw Error('Referências OAuth obrigatórias');
@@ -58,16 +59,17 @@ function generateAlerts(db,j,day){let count=0;
 }
 export async function runOperations(db,config,options={}){
  validateConfig(config);const now=options.now??new Date(),day=localDay(now);register(db,config,now.toISOString());const ctx={inbox:options.inbox??'data/inbox',secretsDir:options.secretsDir??'data/secrets',allowedHosts:config.allowedHosts??[],env:options.env??process.env,day,fetcher:options.fetcher??fetch,sleep:options.sleep};const result=[];
- for(const j of [...config.jobs].sort((a,b)=>(a.kind==='alerts')-(b.kind==='alerts'))){if(!j.enabled||localClock(options.now??new Date())<(j.runAfter??'00:00'))continue;const changed=result.some(x=>['success','partial','empty'].includes(x.state));const id=claim(db,j,day,options.now??new Date(),changed);if(!id)continue;
+ for(const j of [...config.jobs].sort((a,b)=>(a.kind==='alerts')-(b.kind==='alerts'))){if(!j.enabled||!options.ignoreSchedule&&localClock(options.now??new Date())<(j.runAfter??'00:00'))continue;const changed=result.some(x=>['success','partial','empty'].includes(x.state));const id=claim(db,j,day,options.now??new Date(),changed);if(!id)continue;
  try{let state='success',records=0,summary='',fingerprint=null;
   if(j.kind==='alerts'){assertLease(db,id);records=generateAlerts(db,j,day);}
   else if(j.kind==='events'){
    const batch=j.adapter==='ticketmaster'?await ticketmaster(db,j,ctx):j.adapter==='sympla'?await sympla(db,j,ctx):j.adapter==='ingresse'?await ingresse(db,j,ctx):await loadFeed(j,ctx);if(batch.platform!==j.provider||batch.observed_on!==day||!Array.isArray(batch.items)||batch.items.length>50000)throw Error('Lote incompatível ou desatualizado');
    state=batch.partial!==false||Number(batch.skipped??0)>0?'partial':batch.items.length?'success':'empty';summary=`${batch.items.length} anúncios; ${Number.isSafeInteger(batch.skipped)?batch.skipped:0} não resolvidos`;
-   records=importEvents(db,{...batch,source:'Automação '+j.id+' / '+j.authorizationRef},n=>{
-    assertLease(db,id);const observation=db.prepare('INSERT OR IGNORE INTO operation_event_observations SELECT ?,?,event_id,? FROM event_listings WHERE platform_id=? AND external_id=?');for(const item of batch.items)observation.run(j.id,hash(j),day,j.provider,item.external_id);
+   records=importEvents(db,{...batch,source:'Automação '+j.id+' / '+j.authorizationRef},(n,meta)=>{
+    if(meta.conflicts){state='partial';summary+=`; ${meta.conflicts} alterações em revisão`;}
+    assertLease(db,id);const observation=db.prepare('INSERT OR IGNORE INTO operation_event_observations SELECT ?,?,event_id,? FROM event_listings WHERE platform_id=? AND external_id=?');for(const external of meta.accepted)observation.run(j.id,hash(j),day,j.provider,external);
     finish(db,id,state,n,summary); // importação e estado da tarefa são atômicos
-   }); // nunca declarar cobertura municipal automaticamente
+   },{tolerateConflicts:true}); // nunca declarar cobertura municipal automaticamente
   }else if(j.kind==='metrics'){
    const batch=await loadFeed(j,ctx);if(batch.network!==j.provider||batch.account_id!==j.accountId||!Array.isArray(batch.rows)||batch.rows.length>50000)throw Error('Métricas incompatíveis');
    fingerprint=hash(batch);records=importNationalMetrics(db,batch.rows,{accountId:j.accountId,network:j.provider,day},n=>{assertLease(db,id);state=n?'success':batch.rows.length?'unchanged':'empty';summary=`${n} novas fotografias nacionais`;finish(db,id,state,n,summary,fingerprint);});
@@ -81,7 +83,7 @@ export async function runOperations(db,config,options={}){
   }
   if(!['events','metrics'].includes(j.kind))finish(db,id,state,records,summary,fingerprint);result.push({job:j.id,state,records});
  }catch(error){ // Never expose tokens, upstream URL, personal data or raw exception strings in the dashboard.
-  const message=String(error?.message??''),code=/^HTTP (\d{3})/.exec(message)?.[1];const reason=code?'HTTP '+code:message==='Credencial não configurada'?'Credencial não configurada':message==='Lote incompatível ou desatualizado'?'Lote incompatível ou desatualizado':message.startsWith('Identidade alterada:')?'Identidade ou data do anúncio mudou: revisar antes de reimportar':message.startsWith('Município desconhecido:')?'Município não mapeado na base':message.startsWith('Paginação')?'Resposta de paginação inesperada':'Falha de coleta/validação; verificar configuração e fonte';const retry=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>0?new Date(Date.now()+Math.min(error.retryAfterMs,365*86400000)).toISOString():null;finish(db,id,'failed',0,reason,null,retry);alert(db,day,'collection',j.id,'Falha de coleta; verificar configuração e fonte');result.push({job:j.id,state:'failed'});
+  const message=String(error?.message??''),code=/^HTTP (\d{3})/.exec(message)?.[1];const reason=code?'HTTP '+code:message==='Credencial não configurada'?'Credencial não configurada':message==='Lote incompatível ou desatualizado'?'Lote incompatível ou desatualizado':message.startsWith('Identidade alterada:')?'Identidade ou data do anúncio mudou: revisar antes de reimportar':message.startsWith('Município desconhecido:')?'Município não localizado na base geográfica':message.startsWith('Paginação')?'Resposta de paginação inesperada':'Falha de coleta/validação; verificar configuração e fonte';const retry=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>0?new Date(Date.now()+Math.min(error.retryAfterMs,365*86400000)).toISOString():null;finish(db,id,'failed',0,reason,null,retry);alert(db,day,'collection',j.id,'Falha de coleta; verificar configuração e fonte');result.push({job:j.id,state:'failed'});
  }}return result;
 }
 export function operationsStatus(db){

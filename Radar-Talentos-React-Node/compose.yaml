@@ -7,6 +7,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    env_file: .env.worker
     environment:
       RADAR_USER: ${RADAR_USER:?configure RADAR_USER}
       RADAR_PASSWORD: ${RADAR_PASSWORD:?configure RADAR_PASSWORD}
@@ -14,6 +15,7 @@ services:
       - "127.0.0.1:3000:3000"
     volumes:
       - radar-data:/app/data
+      - ./config/operations.json:/app/config/operations.json:ro
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s

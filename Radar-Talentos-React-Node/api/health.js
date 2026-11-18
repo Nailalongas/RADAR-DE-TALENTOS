@@ -13,10 +13,10 @@ function getServerlessServer() {
       const defaultPath = databasePath();
       const targetPath = existsSync(defaultPath)
         ? defaultPath
-        : join(tmpdir(), 'radar-vercel-pilot.sqlite');
+        : join(tmpdir(), 'radar-vercel-eventos.sqlite');
       const db = openDatabase(targetPath);
       seedPilotDatabaseIfEmpty(db);
-      return createRadarServer({ database: db });
+      return createRadarServer({ database: db, eventsOnly: true });
     });
   }
   return sharedServerPromise;

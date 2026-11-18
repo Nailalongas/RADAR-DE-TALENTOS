@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "node --experimental-sqlite --watch server/src/index.mjs",
     "dev:web": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "node scripts/build-dashboard.mjs",
     "start": "node --experimental-sqlite server/src/index.mjs",
     "test": "node --experimental-sqlite --test tests/*.test.mjs",
     "db:init": "node --experimental-sqlite scripts/init-database.mjs",
@@ -22,14 +22,18 @@
     "ops:check": "node --experimental-sqlite scripts/operations.mjs check",
     "db:backup": "node --experimental-sqlite scripts/backup.mjs",
     "ops:doctor": "node --experimental-sqlite scripts/doctor.mjs",
-    "registry:import": "node --experimental-sqlite scripts/import-registry.mjs"
+    "registry:import": "node --experimental-sqlite scripts/import-registry.mjs",
+    "events:artists": "node --experimental-sqlite scripts/review-artists.mjs",
+    "ops:setup": "node --experimental-sqlite scripts/setup-events.mjs",
+    "radar:check": "node --check dashboard/dashboard.js",
+    "build:react": "vite build"
   },
   "dependencies": {
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
   "devDependencies": {
-    "vite": "^7.0.0",
-    "@vitejs/plugin-react": "^5.0.0"
+    "@vitejs/plugin-react": "^5.0.0",
+    "vite": "^7.0.0"
   }
 }

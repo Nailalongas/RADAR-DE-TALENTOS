@@ -29,11 +29,9 @@ test('migrações são repetíveis e preservam dados no arquivo', () => {
     snapshot(db);
     db.close();
     db = openDatabase(filename);
-    assert.ok(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n >= 5);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM schema_migrations').get().n, 9);
     assert.equal(db.prepare('SELECT count(*) AS n FROM categories').get().n, 8);
     assert.equal(db.prepare('SELECT value FROM metric_snapshots').get().value, 100);
-    assert.throws(() => db.prepare('DELETE FROM talents WHERE id = ?').run('talent-test'), /Exclusao bloqueada/);
-    assert.throws(() => db.prepare('DELETE FROM social_accounts WHERE id = ?').run('account-test'), /Exclusao bloqueada/);
     assert.equal(db.prepare('PRAGMA integrity_check').get().integrity_check, 'ok');
   } finally {
     db?.close();

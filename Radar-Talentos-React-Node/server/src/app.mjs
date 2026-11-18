@@ -1,481 +1,77 @@
+import { operationsStatus, runOperations } from './operations.mjs';
+import { readEventConfig } from './event-config.mjs';
+import { authenticate } from './security.mjs';
+import { opportunityQuery } from './opportunities.mjs';
+import { audienceStatus } from './audience.mjs';
+import { eventQuery } from './events.mjs';
+import { radarQuery, FilterError } from './radar.mjs';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { resolve, sep, extname } from 'node:path';
-import {
-  queryTaxonomy,
-  queryHistoryRows,
-  queryResearchSummary,
-  queryEvolution,
-} from './database/research.mjs';
-import { radarQuery, FilterError } from './radar.mjs';
-import { eventQuery } from './events.mjs';
-import { audienceStatus } from './audience.mjs';
-import { opportunitiesQuery, opportunityQuery } from './opportunities.mjs';
-import { operationsStatus } from './operations.mjs';
-import { authenticate } from './security.mjs';
-import {
-  queryGeoRegions,
-  queryGeoStates,
-  queryGeoMunicipalities,
-  queryModalities,
-  queryAudienceMapAndDistribution,
-  importRegionalAudience,
-  importEventsBatch,
-  queryEventTrendsAndRankings,
-  queryOpportunities,
-  querySourcesStatus,
-} from './database/geo-intelligence.mjs';
 
-const dist = fileURLToPath(new URL('../../dist', import.meta.url));
-const contentTypes = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.json': 'application/json; charset=utf-8',
-  '.map': 'application/json; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.png': 'image/png',
-  '.webp': 'image/webp',
-  '.ico': 'image/x-icon',
-  '.woff': 'font/woff',
-  '.woff2': 'font/woff2',
-  '.txt': 'text/plain; charset=utf-8',
-};
+const dist = fileURLToPath(new URL('../../dashboard', import.meta.url));
+const contentTypes = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
-function sendJson(req, res, statusCode, payload) {
-  res.writeHead(statusCode, {
-    'Content-Type': 'application/json; charset=utf-8',
-    'Cache-Control': 'no-store',
-  });
-  res.end(req.method === 'HEAD' ? undefined : JSON.stringify(payload));
-}
-
-function checkDatabaseReady(database, req, res) {
-  if (!database) return true;
-  try {
-    database.prepare('SELECT 1').get();
-    return true;
-  } catch {
-    sendJson(req, res, 503, { ok: false, error: 'Banco de dados indisponível' });
-    return false;
-  }
-}
-
-function isAuthorizedAdmin(req, adminToken) {
-  const expected = adminToken || process.env.RADAR_ADMIN_TOKEN || 'radar-local-admin';
-  const authHeader = req.headers.authorization || '';
-  return authHeader === `Bearer ${expected}`;
-}
-
-async function readJsonBody(req, maxBytes = 2000000) {
-  const chunks = [];
-  let total = 0;
-  for await (const chunk of req) {
-    total += chunk.length;
-    if (total > maxBytes) {
-      throw new Error('Corpo da requisição excede o limite permitido (2 MB).');
+export function createRadarServer({ database, security = null, eventsOnly = false, syncConfig = readEventConfig, syncOptions = {} } = {}) {
+  const requests=new Map();let syncing=false;let lastSync=null;
+  return createServer({requestTimeout:30000,headersTimeout:15000,maxHeaderSize:16384},async (req, res) => {
+    res.setHeader("X-Content-Type-Options","nosniff");res.setHeader("X-Frame-Options","DENY");res.setHeader("Referrer-Policy","no-referrer");res.setHeader("Cache-Control","no-store");
+    if(security)res.setHeader("Content-Security-Policy","default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'");
+    const now=Date.now(),ip=req.socket.remoteAddress;
+    if(requests.size>10000)for(const [k,v] of requests)if(now-v.start>=60000)requests.delete(k);
+    let rate=requests.get(ip);if(!rate||now-rate.start>=60000){rate={start:now,count:0};if(requests.size<10000||requests.has(ip))requests.set(ip,rate);else{res.writeHead(429).end();return;}}
+    if(++rate.count>300){res.writeHead(429,{"Retry-After":"60"}).end();return;}
+    if (!['GET','HEAD'].includes(req.method)&&!(eventsOnly&&req.method==='POST'&&req.url==='/api/operations/sync')) {
+      res.writeHead(405, { Allow: 'GET, HEAD' }).end();
+      return;
     }
-    chunks.push(chunk);
-  }
-  const raw = Buffer.concat(chunks).toString('utf8');
-  return raw ? JSON.parse(raw) : {};
-}
-
-const POST_ADMIN_ROUTES = new Set([
-  '/api/admin/audience/import',
-  '/api/admin/events/import',
-]);
-
-export function createRadarServer({ database, adminToken, security = null } = {}) {
-  const requests = new Map();
-  return createServer(
-    { requestTimeout: 30000, headersTimeout: 15000, maxHeaderSize: 16384 },
-    async (req, res) => {
-      try {
-        res.setHeader('X-Content-Type-Options', 'nosniff');
-        res.setHeader('X-Frame-Options', 'DENY');
-        res.setHeader('Referrer-Policy', 'no-referrer');
-        res.setHeader('Cache-Control', 'no-store');
-        if (security) {
-          res.setHeader(
-            'Content-Security-Policy',
-            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-          );
-        }
-        const now = Date.now();
-        const ip = req.socket.remoteAddress;
-        if (requests.size > 10000) {
-          for (const [k, v] of requests) {
-            if (now - v.start >= 60000) requests.delete(k);
-          }
-        }
-        let rate = requests.get(ip);
-        if (!rate || now - rate.start >= 60000) {
-          rate = { start: now, count: 0 };
-          if (requests.size < 10000 || requests.has(ip)) {
-            requests.set(ip, rate);
-          } else {
-            res.writeHead(429).end();
+    try {
+      const path = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+      if (path === '/api/health') {
+        if (database) {
+          try { database.prepare('SELECT 1').get(); } catch {
+            res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+            res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ok: false }));
             return;
           }
         }
-        if (++rate.count > 300) {
-          res.writeHead(429, { 'Retry-After': '60' }).end();
-          return;
-        }
-
-        const requestUrl = new URL(req.url, 'http://localhost');
-        const path = decodeURIComponent(requestUrl.pathname);
-
-        if (POST_ADMIN_ROUTES.has(path)) {
-          if (req.method !== 'POST') {
-            res.writeHead(405, { Allow: 'POST' }).end();
-            return;
-          }
-          if (!isAuthorizedAdmin(req, adminToken)) {
-            sendJson(req, res, 401, {
-              error: 'Acesso não autorizado. Informe o token administrativo válido.',
-            });
-            return;
-          }
-          if (!checkDatabaseReady(database, req, res)) return;
-          try {
-            const body = await readJsonBody(req);
-            if (path === '/api/admin/audience/import') {
-              sendJson(res ? req : req, res, 200, importRegionalAudience(database, body));
-              return;
-            }
-            if (path === '/api/admin/events/import') {
-              sendJson(req, res, 200, importEventsBatch(database, body));
-              return;
-            }
-          } catch (err) {
-            sendJson(req, res, 400, { error: err.message || 'Dados inválidos.' });
-            return;
-          }
-        }
-
-        if (!['GET', 'HEAD'].includes(req.method)) {
-          res.writeHead(405, { Allow: 'GET, HEAD' }).end();
-          return;
-        }
-
-        if (path === '/api/health') {
-          if (database) {
-            try {
-              database.prepare('SELECT 1').get();
-            } catch {
-              res.writeHead(503, {
-                'Content-Type': 'application/json',
-                'Cache-Control': 'no-store',
-              });
-              res.end(
-                req.method === 'HEAD' ? undefined : JSON.stringify({ ok: false })
-              );
-              return;
-            }
-          }
-          res.writeHead(200, {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store',
-          });
-          res.end(
-            req.method === 'HEAD' ? undefined : JSON.stringify({ ok: true })
-          );
-          return;
-        }
-
-        if (!authenticate(req, security)) {
-          res
-            .writeHead(401, {
-              'WWW-Authenticate': 'Basic realm="Radar", charset="UTF-8"',
-            })
-            .end();
-          return;
-        }
-
-        if (path === '/api/operations/status') {
-          if (!database) {
-            res.writeHead(503).end();
-            return;
-          }
-          if (!checkDatabaseReady(database, req, res)) return;
-          sendJson(req, res, 200, operationsStatus(database));
-          return;
-        }
-
-      if (path === '/api/audience/status') {
-        if (!database) {
-          res.writeHead(503).end();
-          return;
-        }
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, audienceStatus(database));
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+        res.end(req.method === 'HEAD' ? undefined : JSON.stringify({ ok: true }));
         return;
       }
-
-      if (path === '/api/opportunities/intelligence') {
-        if (!database) {
-          res.writeHead(503).end();
-          return;
-        }
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(
-          req,
-          res,
-          200,
-          opportunitiesQuery(database, requestUrl.searchParams)
-        );
-        return;
+      if (!authenticate(req,security)) {res.writeHead(401,{'WWW-Authenticate':'Basic realm="Radar", charset="UTF-8"'}).end();return;}
+      if(eventsOnly&&(['/api/opportunities','/api/audience/status','/api/radar/ranking','/api/radar/reports'].includes(path))){res.writeHead(404).end();return;}
+      if(eventsOnly&&path==='/api/operations/sync'&&req.method==='POST'){
+        const origin=req.headers.origin;let same=false;try{same=['http:','https:'].includes(new URL(origin).protocol)&&new URL(origin).host===req.headers.host;}catch{}
+        if(!same||req.headers['x-radar-action']!=='sync'){res.writeHead(403).end();return;}if(!database){res.writeHead(503).end();return;}
+        if(syncing){res.writeHead(409,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Sincronização já em execução'}));return;}
+        let config;try{config=await syncConfig();}catch{res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Configure as fontes antes de sincronizar (config/operations.json)'}));return;}
+        if(!config.jobs.some(j=>j.enabled&&j.kind==='events')){res.writeHead(400,{'Content-Type':'application/json'}).end(JSON.stringify({error:'Nenhuma fonte de eventos habilitada'}));return;}
+        if(syncing){res.writeHead(409).end();return;}syncing=true;lastSync=null;
+        res.writeHead(202,{'Content-Type':'application/json'}).end(JSON.stringify({accepted:true}));
+        runOperations(database,config,{...syncOptions,ignoreSchedule:true,inbox:syncOptions.inbox??process.env.RADAR_INBOX??'data/inbox',secretsDir:syncOptions.secretsDir??process.env.RADAR_SECRETS_DIR??'data/secrets'}).then(r=>{lastSync={runs:r};}).catch(()=>{lastSync={error:'Falha operacional; verifique banco e configuração'};}).finally(()=>{syncing=false;});return;
       }
-
-      if (path === '/api/taxonomy') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, queryTaxonomy(database));
-        return;
+      if (path === '/api/operations/status') {
+        if (!database) {res.writeHead(503).end();return;}
+        res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify((()=>{const state=operationsStatus(database);if(eventsOnly){const ids=new Set(state.jobs.filter(j=>['events','alerts'].includes(j.kind)).map(j=>j.id));state.jobs=state.jobs.filter(j=>ids.has(j.id));state.history=state.history.filter(j=>ids.has(j.job_id));state.alerts=state.alerts.filter(a=>a.kind==='trend'||a.kind==='collection'&&ids.has(a.subject));}return {...state,syncing,lastSync};})()));return;
       }
-
-      if (path.startsWith('/api/radar/')) {
-        if (!database) {
-          res.writeHead(503).end();
-          return;
-        }
-        if (!checkDatabaseReady(database, req, res)) return;
-        const result = radarQuery(database, path, requestUrl.searchParams);
-        if (result !== undefined) {
-          sendJson(req, res, 200, result);
-          return;
-        }
-      }
-
-      if (path === '/api/modalities') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, queryModalities(database));
-        return;
-      }
-
-      if (path === '/api/geo/regions') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, queryGeoRegions(database));
-        return;
-      }
-
-      if (path === '/api/geo/states') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        const region = requestUrl.searchParams.get('region') || '';
-        sendJson(req, res, 200, queryGeoStates(database, { region }));
-        return;
-      }
-
-      if (path === '/api/geo/municipalities' || path === '/api/geo/radius') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        try {
-          const search = requestUrl.searchParams.get('search') || '';
-          const uf = requestUrl.searchParams.get('uf') || '';
-          const region = requestUrl.searchParams.get('region') || '';
-          const centerMunicipalityId =
-            requestUrl.searchParams.get('municipalityId') ||
-            requestUrl.searchParams.get('centerMunicipalityId') ||
-            '';
-          const radiusKm = requestUrl.searchParams.get('radiusKm');
-          sendJson(
-            req,
-            res,
-            200,
-            queryGeoMunicipalities(database, {
-              search,
-              uf,
-              region,
-              centerMunicipalityId,
-              radiusKm,
-            })
-          );
-        } catch (err) {
-          sendJson(req, res, 400, { error: err.message });
-        }
-        return;
-      }
-
-      if (path === '/api/audience/map' || path === '/api/audience/distribution') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        try {
-          const params = requestUrl.searchParams;
-          sendJson(
-            req,
-            res,
-            200,
-            queryAudienceMapAndDistribution(database, {
-              talentId: params.get('talentId') || '',
-              talentName: params.get('talentName') || '',
-              platform: params.get('platform') || 'all',
-              metric: params.get('metric') || '',
-              region: params.get('region') || '',
-              uf: params.get('uf') || '',
-              centerMunicipalityId:
-                params.get('centerMunicipalityId') ||
-                params.get('municipalityId') ||
-                '',
-              radiusKm: params.get('radiusKm'),
-              provenance: params.get('provenance') || 'all',
-              perCapita: params.get('perCapita') === 'true',
-            })
-          );
-        } catch (err) {
-          sendJson(req, res, 400, { error: err.message });
-        }
-        return;
-      }
-
-      if (
-        path === '/api/events/platforms' ||
-        (path === '/api/events/trends' &&
-          (requestUrl.searchParams.has('start') ||
-            requestUrl.searchParams.has('end') ||
-            requestUrl.searchParams.has('basis')))
-      ) {
-        if (!database) {
-          res.writeHead(503).end();
-          return;
-        }
-        if (!checkDatabaseReady(database, req, res)) return;
-        const result = eventQuery(database, path, requestUrl.searchParams);
-        if (result !== undefined) {
-          sendJson(req, res, 200, result);
-          return;
-        }
-      }
-
-      if (
-        path === '/api/events' ||
-        path === '/api/events/trends' ||
-        path === '/api/events/rankings' ||
-        path === '/api/events/map' ||
-        path === '/api/events/calendar'
-      ) {
-        if (!checkDatabaseReady(database, req, res)) return;
-        try {
-          const params = requestUrl.searchParams;
-          sendJson(
-            req,
-            res,
-            200,
-            queryEventTrendsAndRankings(database, {
-              modalityId: params.get('modalityId') || 'all',
-              submodalityId: params.get('submodalityId') || 'all',
-              region: params.get('region') || '',
-              uf: params.get('uf') || '',
-              centerMunicipalityId:
-                params.get('centerMunicipalityId') ||
-                params.get('municipalityId') ||
-                '',
-              radiusKm: params.get('radiusKm'),
-              sourceId: params.get('sourceId') || 'all',
-              dateFrom: params.get('dateFrom') || '',
-              dateTo: params.get('dateTo') || '',
-              dateBasis: params.get('dateBasis') || 'realization',
-              includeFree: params.get('includeFree') === 'true',
-            })
-          );
-        } catch (err) {
-          sendJson(req, res, 400, { error: err.message });
-        }
-        return;
-      }
-
       if (path === '/api/opportunities') {
-        if (!database) {
-          res.writeHead(503).end();
-          return;
-        }
-        if (!checkDatabaseReady(database, req, res)) return;
-        const params = requestUrl.searchParams;
-        if (
-          params.has('talentName') ||
-          params.has('talentId') ||
-          params.has('modalityId') ||
-          params.has('centerMunicipalityId') ||
-          params.has('radiusKm')
-        ) {
-          try {
-            sendJson(
-              req,
-              res,
-              200,
-              queryOpportunities(database, {
-                talentId: params.get('talentId') || '',
-                talentName: params.get('talentName') || '',
-                platform: params.get('platform') || 'Instagram',
-                metric: params.get('metric') || 'seguidores',
-                modalityId: params.get('modalityId') || 'all',
-                region: params.get('region') || '',
-                uf: params.get('uf') || '',
-                centerMunicipalityId:
-                  params.get('centerMunicipalityId') ||
-                  params.get('municipalityId') ||
-                  '',
-                radiusKm: params.get('radiusKm'),
-              })
-            );
-          } catch (err) {
-            sendJson(req, res, 400, { error: err.message });
-          }
-          return;
-        }
-        const result = opportunityQuery(database, params);
-        sendJson(req, res, 200, result);
-        return;
+        if (!database) { res.writeHead(503).end(); return; }
+        const result=opportunityQuery(database,new URL(req.url,'http://localhost').searchParams);
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(result)); return;
       }
-
-      if (path === '/api/sources/status') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, querySourcesStatus(database));
-        return;
+      if (path === '/api/audience/status') {
+        if (!database) { res.writeHead(503).end(); return; }
+        res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(audienceStatus(database))); return;
       }
-
-      if (path === '/api/history') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        sendJson(req, res, 200, queryHistoryRows(database));
-        return;
-      }
-      if (path === '/api/research') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        const start = requestUrl.searchParams.get('start') || '';
-        const end = requestUrl.searchParams.get('end') || '';
-        sendJson(req, res, 200, queryResearchSummary(database, { start, end }));
-        return;
-      }
-      if (path === '/api/evolution') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        const personId = requestUrl.searchParams.get('personId') || '';
-        const name = requestUrl.searchParams.get('name') || '';
-        sendJson(req, res, 200, queryEvolution(database, { personId, name }));
-        return;
-      }
-      if (path === '/api/spotify/history') {
-        if (!checkDatabaseReady(database, req, res)) return;
-        const history = queryHistoryRows(database);
-        const spotifyRows = history.rows
-          .filter(r => r.rede === 'Spotify' && Number.isFinite(r.seguidores))
-          .map(r => ({
-            name: r.nome,
-            artistId: r.artistId || '',
-            url: r.url,
-            date: r.data,
-            monthlyListeners: r.seguidores,
-            comparisonPersonId: r.personId,
-            identityStatus: r.identityConfirmed ? 'confirmed' : 'name-match',
-          }));
-        sendJson(req, res, 200, { rows: spotifyRows });
-        return;
+      if (path.startsWith('/api/radar/') || path.startsWith('/api/events/')) {
+        if (!database) { res.writeHead(503).end(); return; }
+        const params = new URL(req.url,'http://localhost').searchParams; const result = path.startsWith('/api/events/') ? eventQuery(database,path,params) : radarQuery(database,path,params);
+        if (result !== undefined) { res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(result)); return; }
       }
       if (path === '/api' || path.startsWith('/api/')) {
-        res
-          .writeHead(404, { 'Content-Type': 'application/json' })
-          .end(
-            req.method === 'HEAD' ? undefined : '{"error":"Rota não encontrada"}'
-          );
+        res.writeHead(404, { 'Content-Type': 'application/json' }).end(req.method === 'HEAD' ? undefined : '{"error":"Rota não encontrada"}');
         return;
       }
       if (path.includes('\\') || path.includes('\0')) {
@@ -488,24 +84,11 @@ export function createRadarServer({ database, adminToken, security = null } = {}
         return;
       }
       const body = await readFile(file);
-      res.writeHead(200, {
-        'Content-Type': contentTypes[extname(file)] ?? 'application/octet-stream',
-        'X-Content-Type-Options': 'nosniff',
-        'X-Frame-Options': 'DENY',
-        'Referrer-Policy': 'strict-origin-when-cross-origin',
-      });
+      res.writeHead(200, { 'Content-Type': contentTypes[extname(file)] ?? 'application/octet-stream', 'X-Content-Type-Options': 'nosniff' });
       res.end(req.method === 'HEAD' ? undefined : body);
     } catch (error) {
-      if (error instanceof FilterError) {
-        sendJson(req, res, 400, { error: error.message });
-        return;
-      }
-      const code =
-        error instanceof URIError
-          ? 400
-          : ['ENOENT', 'EISDIR', 'ENOTDIR'].includes(error.code)
-            ? 404
-            : 500;
+      if(error instanceof FilterError){ res.writeHead(400,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify({error:error.message})); return; }
+      const code = error instanceof URIError ? 400 : ['ENOENT','EISDIR','ENOTDIR'].includes(error.code) ? 404 : 500;
       res.writeHead(code).end();
     }
   });
