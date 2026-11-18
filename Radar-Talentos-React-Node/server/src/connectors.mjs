@@ -65,11 +65,22 @@ export async function sympla(db,job,ctx){
 }
 
 export async function youtubeToken(job,ctx){
- if(!job.refreshTokenEnv)return secret(job.tokenEnv,ctx.env);
+ if(!job.refreshTokenEnv)return providerToken(job,ctx);
  const body=new URLSearchParams({grant_type:'refresh_token',refresh_token:secret(job.refreshTokenEnv,ctx.env),client_id:secret(job.clientIdEnv,ctx.env),client_secret:secret(job.clientSecretEnv,ctx.env)});
  const data=await jsonResponse(new URL('https://oauth2.googleapis.com/token'),{...ctx,method:'POST',body,headers:{'Content-Type':'application/x-www-form-urlencoded'}});
  if(typeof data.access_token!=='string'||!data.access_token)throw Error('Token renovado indisponível');return data.access_token;
 }
+
+export async function spotifyToken(job,ctx){
+ if(!job.clientIdEnv&&!job.clientSecretEnv)return providerToken(job,ctx);
+ const clientId=secret(job.clientIdEnv,ctx.env),clientSecret=secret(job.clientSecretEnv,ctx.env);
+ const basic=Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+ const body=new URLSearchParams({grant_type:'client_credentials'});
+ const data=await jsonResponse(new URL('https://accounts.spotify.com/api/token'),{...ctx,method:'POST',body,headers:{Authorization:`Basic ${basic}`,'Content-Type':'application/x-www-form-urlencoded'}});
+ if(typeof data.access_token!=='string'||!data.access_token)throw Error('Token Spotify indisponível');
+ return data.access_token;
+}
+
 // Partner Reports uses the host supplied during onboarding and a user token
 // (client_credentials is not accepted by this endpoint).
 export async function ingresse(db,job,ctx){
@@ -91,8 +102,79 @@ export async function ingresse(db,job,ctx){
  }
  return {platform:'ingresse',observed_on:ctx.day,items,partial:truncated||skipped>0,skipped};
 }
+
 export async function providerToken(job,ctx){
  if(!job.tokenFile)return secret(job.tokenEnv,ctx.env);
  const {realpath}=await import('node:fs/promises'),root=await realpath(ctx.secretsDir??'data/secrets'),file=await realpath(resolve(root,job.tokenFile)),rel=relative(root,file);if(!rel||rel.startsWith('..')||isAbsolute(rel)||(await stat(file)).size>16384)throw Error('Arquivo de credencial inválido');
  const token=(await readFile(file,'utf8')).trim();if(!token||/[\r\n]/.test(token))throw Error('Credencial não configurada');return token;
+}
+
+function getConfirmedAccount(db,accountId,network){
+ const a=db.prepare('SELECT a.id,a.talent_id,a.network,a.external_id,a.url,a.identity_confirmed,a.identity_source,t.name,t.blocked FROM social_accounts a JOIN talents t ON t.id=a.talent_id WHERE a.id=?').get(accountId);
+ if(!a||a.network!==network||!a.identity_confirmed||a.blocked||typeof a.external_id!=='string'||!a.external_id.trim()){
+  throw Error(`Conta ${network} não confirmada ou sem identificador externo`);
+ }
+ return {...a,external_id:a.external_id.trim()};
+}
+
+export async function instagramMetrics(db,job,ctx){
+ const account=getConfirmedAccount(db,job.accountId,'Instagram');
+ const token=await providerToken(job,ctx);
+ const collectedAt=(ctx.now??new Date()).toISOString();
+ const source=`Instagram Graph API / ${job.authorizationRef}`;
+ let profile;
+ if(job.businessAccountId){
+  if(!/^[0-9]{4,40}$/.test(job.businessAccountId)||!/^[a-zA-Z0-9._]{1,60}$/.test(account.external_id)){
+   throw Error('Identificador Instagram inválido');
+  }
+  const url=new URL(`https://graph.facebook.com/v21.0/${job.businessAccountId}`);
+  url.search=new URLSearchParams({fields:`business_discovery.username(${account.external_id}){username,followers_count,media_count}`});
+  const data=await jsonResponse(url,{...ctx,headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
+  profile=data?.business_discovery;
+  if(!profile||normalize(profile.username)!==normalize(account.external_id)){
+   throw Error('Identidade retornada pelo Instagram não corresponde à conta confirmada');
+  }
+ }else{
+  if(!/^[a-zA-Z0-9._-]{1,60}$/.test(account.external_id))throw Error('Identificador Instagram inválido');
+  const url=new URL(`https://graph.facebook.com/v21.0/${account.external_id}`);
+  url.search=new URLSearchParams({fields:'id,username,followers_count,media_count'});
+  profile=await jsonResponse(url,{...ctx,headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
+ }
+ const followers=profile?.followers_count;
+ if(!Number.isSafeInteger(followers)||followers<0)throw Error('Métrica de seguidores Instagram indisponível');
+ const rows=[{account_id:account.id,network:'Instagram',metric:'followers',observed_on:ctx.day,value:followers,source,collected_at:collectedAt,intraday:true}];
+ return {network:'Instagram',account_id:account.id,observed_on:ctx.day,collected_at:collectedAt,intraday:true,rows};
+}
+
+export async function youtubeMetrics(db,job,ctx){
+ const account=getConfirmedAccount(db,job.accountId,'YouTube');
+ if(!/^[a-zA-Z0-9_-]{4,60}$/.test(account.external_id))throw Error('Identificador de canal YouTube inválido');
+ const token=await youtubeToken(job,ctx);
+ const collectedAt=(ctx.now??new Date()).toISOString();
+ const source=`YouTube Data API v3 / ${job.authorizationRef}`;
+ const url=new URL('https://www.googleapis.com/youtube/v3/channels');
+ url.search=new URLSearchParams({part:'statistics',id:account.external_id});
+ const data=await jsonResponse(url,{...ctx,headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
+ const item=Array.isArray(data?.items)?data.items.find(x=>x?.id===account.external_id):null;
+ const stats=item?.statistics;
+ if(!stats||stats.hiddenSubscriberCount===true)throw Error('Inscritos ocultos ou canal YouTube não localizado');
+ const subscribers=Number(stats.subscriberCount);
+ if(!Number.isSafeInteger(subscribers)||subscribers<0)throw Error('Métrica de inscritos YouTube inválida');
+ const rows=[{account_id:account.id,network:'YouTube',metric:'subscribers',observed_on:ctx.day,value:subscribers,source,collected_at:collectedAt,intraday:true}];
+ return {network:'YouTube',account_id:account.id,observed_on:ctx.day,collected_at:collectedAt,intraday:true,rows};
+}
+
+export async function spotifyMetrics(db,job,ctx){
+ const account=getConfirmedAccount(db,job.accountId,'Spotify');
+ if(!/^[a-zA-Z0-9]{10,50}$/.test(account.external_id))throw Error('Identificador de artista Spotify inválido');
+ const token=await spotifyToken(job,ctx);
+ const collectedAt=(ctx.now??new Date()).toISOString();
+ const source=`Spotify Web API / ${job.authorizationRef}`;
+ const url=new URL(`https://api.spotify.com/v1/artists/${account.external_id}`);
+ const data=await jsonResponse(url,{...ctx,headers:{Authorization:`Bearer ${token}`,Accept:'application/json'}});
+ if(data?.id!==account.external_id)throw Error('Artista retornado pelo Spotify não corresponde à conta confirmada');
+ const followers=data?.followers?.total;
+ if(!Number.isSafeInteger(followers)||followers<0)throw Error('Métrica de seguidores Spotify inválida');
+ const rows=[{account_id:account.id,network:'Spotify',metric:'followers',observed_on:ctx.day,value:followers,source,collected_at:collectedAt,intraday:true}];
+ return {network:'Spotify',account_id:account.id,observed_on:ctx.day,collected_at:collectedAt,intraday:true,rows};
 }

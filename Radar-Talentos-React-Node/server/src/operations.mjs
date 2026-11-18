@@ -1,25 +1,26 @@
 import {importCommercial} from './commercial.mjs';
 import {importRegionalReport} from './regional-dashboard.mjs';
-import {importNationalMetrics} from './registry.mjs';
+import {importNationalMetrics,recordAccountCollectionStatus} from './registry.mjs';
 import {createHash,randomUUID} from 'node:crypto';
 import {importEvents} from './events.mjs';
 import {importAudience,fetchYouTubeReport} from './audience.mjs';
 import {opportunityQuery} from './opportunities.mjs';
-import {platforms,loadFeed,ticketmaster,sympla,ingresse,youtubeToken} from './connectors.mjs';
+import {platforms,loadFeed,ticketmaster,sympla,ingresse,youtubeToken,instagramMetrics,youtubeMetrics,spotifyMetrics} from './connectors.mjs';
 const hash=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 export const localDay=(d=new Date())=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(d);
 const localClock=d=>new Intl.DateTimeFormat('en-GB',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(d);
-const scopeFor=j=>j.adapter==='ticketmaster'?'Discovery Brasil / páginas retornadas':j.adapter==='sympla'?'Eventos públicos do produtor autorizado':j.adapter==='ingresse'?'Eventos públicos da organização autorizada':j.adapter==='youtube'?'Canal autorizado / relatório por cidade':j.kind==='alerts'?'Alertas internos dos recortes configurados':j.scope??'Feed autorizado / escopo não informado';
+const scopeFor=j=>j.adapter==='ticketmaster'?'Discovery Brasil / páginas retornadas':j.adapter==='sympla'?'Eventos públicos do produtor autorizado':j.adapter==='ingresse'?'Eventos públicos da organização autorizada':j.adapter==='youtube'?(j.kind==='metrics'?'YouTube Data API v3 / estatísticas do canal':'Canal autorizado / relatório por cidade'):j.adapter==='instagram'?'Instagram Graph API / conta profissional confirmada':j.adapter==='spotify'?'Spotify Web API / seguidores do artista confirmado':j.kind==='alerts'?'Alertas internos dos recortes configurados':j.scope??'Feed autorizado / escopo não informado';
 const shift=(d,n)=>new Date(Date.parse(d+'T00:00:00Z')+n*86400000).toISOString().slice(0,10);
 const safeId=x=>typeof x==='string'&&/^[a-zA-Z0-9_-]{1,80}$/.test(x);
 export function validateConfig(c){
  if(!c||!Array.isArray(c.jobs)||c.jobs.length>100||!Array.isArray(c.allowedHosts??[]))throw Error('Configuração inválida');if((c.allowedHosts??[]).some(h=>typeof h!=='string'||!/^([a-z0-9-]+\.)+[a-z0-9-]+$/.test(h)))throw Error('Host autorizado inválido');const seen=new Set();
  for(const j of c.jobs){if(!safeId(j.id)||seen.has(j.id)||typeof j.enabled!=='boolean'||!['events','audience','metrics','alerts'].includes(j.kind))throw Error('Job inválido');seen.add(j.id);
   if(j.runAfter!==undefined&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(j.runAfter)||j.maxAttempts!==undefined&&(!Number.isInteger(j.maxAttempts)||j.maxAttempts<1||j.maxAttempts>6)||j.retryMinutes!==undefined&&(!Number.isInteger(j.retryMinutes)||j.retryMinutes<15||j.retryMinutes>360))throw Error('Agendamento inválido');
+  if(j.intraday!==undefined&&typeof j.intraday!=='boolean'||j.minIntervalMinutes!==undefined&&(!Number.isInteger(j.minIntervalMinutes)||j.minIntervalMinutes<0||j.minIntervalMinutes>720))throw Error('Agendamento intradiário inválido');
   if(j.scope!==undefined&&(typeof j.scope!=='string'||j.scope.length>300))throw Error('Escopo inválido');
   if(j.kind==='events'&&!platforms.includes(j.provider)||j.kind==='audience'&&!['YouTube','Instagram','Spotify','TikTok'].includes(j.provider)||j.kind==='metrics'&&!['YouTube','Instagram','Spotify',...(j.commercial===true?['TikTok']:[])].includes(j.provider)||j.kind==='alerts'&&j.provider!=='radar')throw Error('Provedor inválido');
   if(j.kind==='alerts'){if(j.adapter!=='internal'||!Array.isArray(j.queries??[])||(j.queries??[]).length>30||(j.queries??[]).some(q=>!q||typeof q!=='object'||Array.isArray(q)||Object.values(q).some(v=>typeof v!=='string'||v.length>500)))throw Error('Consultas de alerta inválidas');continue;}
-  if(!['file','https','ticketmaster','sympla','ingresse','youtube'].includes(j.adapter)||j.adapter==='ticketmaster'&&(j.kind!=='events'||j.provider!=='ticketmaster')||j.adapter==='sympla'&&(j.kind!=='events'||j.provider!=='sympla')||j.adapter==='ingresse'&&(j.kind!=='events'||j.provider!=='ingresse')||j.adapter==='youtube'&&(j.kind!=='audience'||j.provider!=='YouTube'))throw Error('Adaptador inválido');
+  if(!['file','https','ticketmaster','sympla','ingresse','youtube','instagram','spotify'].includes(j.adapter)||j.adapter==='ticketmaster'&&(j.kind!=='events'||j.provider!=='ticketmaster')||j.adapter==='sympla'&&(j.kind!=='events'||j.provider!=='sympla')||j.adapter==='ingresse'&&(j.kind!=='events'||j.provider!=='ingresse')||j.adapter==='youtube'&&(!['audience','metrics'].includes(j.kind)||j.provider!=='YouTube')||j.adapter==='instagram'&&(j.kind!=='metrics'||j.provider!=='Instagram')||j.adapter==='spotify'&&(j.kind!=='metrics'||j.provider!=='Spotify'))throw Error('Adaptador inválido');
   if(j.commercial===true&&(j.kind!=='metrics'||!['file','https'].includes(j.adapter)))throw Error('Feed comercial inválido');
   if(j.enabled){
    if(typeof j.authorizationRef!=='string'||!j.authorizationRef.trim()||j.authorizationRef.length>300)throw Error('Referência de autorização obrigatória');
@@ -31,7 +32,7 @@ export function validateConfig(c){
    if(j.adapter==='ingresse'&&(!(c.allowedHosts??[]).includes(j.host)||!j.organizationId))throw Error('Host ou organização Ingresse ausente');
    if(j.splitByState!==undefined&&typeof j.splitByState!=='boolean')throw Error('Particionamento inválido');
    if(j.maxPages!==undefined&&(!Number.isInteger(j.maxPages)||j.maxPages<1||j.maxPages>20))throw Error('Limite de páginas inválido');
-   if(['ticketmaster','sympla'].includes(j.adapter)&&!j.tokenEnv||j.adapter==='ingresse'&&!j.tokenEnv&&!j.tokenFile||j.adapter==='youtube'&&!j.tokenEnv&&!j.refreshTokenEnv)throw Error('Referência de credencial obrigatória');
+   if(['ticketmaster','sympla'].includes(j.adapter)&&!j.tokenEnv||['ingresse','instagram'].includes(j.adapter)&&!j.tokenEnv&&!j.tokenFile||j.adapter==='youtube'&&!j.tokenEnv&&!j.tokenFile&&!j.refreshTokenEnv||j.adapter==='spotify'&&!j.tokenEnv&&!j.tokenFile&&(!j.clientIdEnv||!j.clientSecretEnv))throw Error('Referência de credencial obrigatória');
    if(j.adapter==='youtube'&&j.refreshTokenEnv&&(!j.clientIdEnv||!j.clientSecretEnv))throw Error('Referências OAuth obrigatórias');
   }
  }
@@ -44,12 +45,14 @@ function claim(db,j,day,now,refreshAlert=false){const ts=now.toISOString(),lease
  db.prepare("UPDATE operation_runs SET state='failed',finished_at=?,summary='Execução interrompida; lease expirou' WHERE job_id=? AND state='running' AND lease_until<=?").run(ts,j.id,ts);
  if(db.prepare("SELECT 1 FROM operation_runs WHERE job_id=? AND config_hash=? AND retry_not_before>?").get(j.id,hash(j),ts)){db.exec('COMMIT');return null;}
  const lastAny=db.prepare('SELECT attempt FROM operation_runs WHERE job_id=? AND day=? ORDER BY attempt DESC LIMIT 1').get(j.id,day);
- const last=db.prepare('SELECT * FROM operation_runs WHERE job_id=? AND day=? AND config_hash=? ORDER BY attempt DESC LIMIT 1').get(j.id,day,hash(j));const attempts=db.prepare('SELECT count(*) n FROM operation_runs WHERE job_id=? AND day=? AND config_hash=?').get(j.id,day,hash(j)).n;
- if(last&&!(refreshAlert&&j.kind==='alerts'&&last.state==='success')&&(last.state!=='failed'||attempts>=(j.maxAttempts??3)||Date.parse(last.finished_at)+(j.retryMinutes??15)*60000>+now)){db.exec('COMMIT');return null;}
+ const last=db.prepare('SELECT * FROM operation_runs WHERE job_id=? AND day=? AND config_hash=? ORDER BY attempt DESC LIMIT 1').get(j.id,day,hash(j));
+ const failedAttempts=db.prepare("SELECT count(*) n FROM operation_runs WHERE job_id=? AND day=? AND config_hash=? AND state='failed'").get(j.id,day,hash(j)).n;
+ const canIntraday=Boolean(j.intraday===true&&j.kind==='metrics'&&last&&['success','unchanged'].includes(last.state)&&Date.parse(last.finished_at)+(j.minIntervalMinutes??60)*60000<=+now);
+ if(last&&!canIntraday&&!(refreshAlert&&j.kind==='alerts'&&last.state==='success')&&(last.state!=='failed'||failedAttempts>=(j.maxAttempts??3)||Date.parse(last.finished_at)+(j.retryMinutes??15)*60000>+now)){db.exec('COMMIT');return null;}
  const id=randomUUID();db.prepare('INSERT INTO operation_runs(id,job_id,config_hash,day,attempt,state,started_at,lease_until) VALUES(?,?,?,?,?,\'running\',?,?)').run(id,j.id,hash(j),day,(lastAny?.attempt??0)+1,ts,lease);db.exec('COMMIT');return id;
  }catch(e){db.exec('ROLLBACK');throw e;}}
-function assertLease(db,id){if(!db.prepare("SELECT 1 FROM operation_runs WHERE id=? AND state='running' AND lease_until>?").get(id,new Date().toISOString()))throw Error('Lease expirado');}
-function finish(db,id,state,records,summary,fingerprint=null,retryNotBefore=null){db.prepare("UPDATE operation_runs SET state=?,records=?,summary=?,finished_at=?,fingerprint=?,retry_not_before=? WHERE id=? AND state='running'").run(state,records,summary,new Date().toISOString(),fingerprint,retryNotBefore,id);}
+function assertLease(db,id,now=new Date()){if(!db.prepare("SELECT 1 FROM operation_runs WHERE id=? AND state='running' AND lease_until>?").get(id,now.toISOString()))throw Error('Lease expirado');}
+function finish(db,id,state,records,summary,fingerprint=null,retryNotBefore=null,now=new Date()){db.prepare("UPDATE operation_runs SET state=?,records=?,summary=?,finished_at=?,fingerprint=?,retry_not_before=? WHERE id=? AND state='running'").run(state,records,summary,now.toISOString(),fingerprint,retryNotBefore,id);}
 function alert(db,day,kind,subject,message,details={}){return Number(db.prepare('INSERT OR IGNORE INTO operation_alerts VALUES(?,?,?,?,?,?,?)').run(hash([day,kind,subject]),day,kind,subject,message,JSON.stringify(details),new Date().toISOString()).changes);}
 function generateAlerts(db,j,day){let count=0;
  // Compare two seven-day windows only after a baseline day and with a stable successful job daily.
@@ -62,32 +65,44 @@ function generateAlerts(db,j,day){let count=0;
  return count;
 }
 export async function runOperations(db,config,options={}){
- validateConfig(config);const now=options.now??new Date(),day=localDay(now);register(db,config,now.toISOString());const ctx={inbox:options.inbox??'data/inbox',secretsDir:options.secretsDir??'data/secrets',allowedHosts:config.allowedHosts??[],env:options.env??process.env,day,fetcher:options.fetcher??fetch,sleep:options.sleep};const result=[];
+ validateConfig(config);const now=options.now??new Date(),day=localDay(now);register(db,config,now.toISOString());const ctx={inbox:options.inbox??'data/inbox',secretsDir:options.secretsDir??'data/secrets',allowedHosts:config.allowedHosts??[],env:options.env??process.env,day,now,fetcher:options.fetcher??fetch,sleep:options.sleep};const result=[];
  for(const j of [...config.jobs].sort((a,b)=>(a.kind==='alerts')-(b.kind==='alerts'))){if(!j.enabled||!options.ignoreSchedule&&localClock(options.now??new Date())<(j.runAfter??'00:00'))continue;const changed=result.some(x=>['success','partial','empty'].includes(x.state));const id=claim(db,j,day,options.now??new Date(),changed);if(!id)continue;
  try{let state='success',records=0,summary='',fingerprint=null;
-  if(j.kind==='alerts'){assertLease(db,id);records=generateAlerts(db,j,day);}
+  if(j.kind==='alerts'){assertLease(db,id,now);records=generateAlerts(db,j,day);}
   else if(j.kind==='events'){
    const batch=j.adapter==='ticketmaster'?await ticketmaster(db,j,ctx):j.adapter==='sympla'?await sympla(db,j,ctx):j.adapter==='ingresse'?await ingresse(db,j,ctx):await loadFeed(j,ctx);if(batch.platform!==j.provider||batch.observed_on!==day||!Array.isArray(batch.items)||batch.items.length>50000)throw Error('Lote incompatível ou desatualizado');
    state=batch.partial!==false||Number(batch.skipped??0)>0?'partial':batch.items.length?'success':'empty';summary=`${batch.items.length} anúncios; ${Number.isSafeInteger(batch.skipped)?batch.skipped:0} não resolvidos`;
    records=importEvents(db,{...batch,source:'Automação '+j.id+' / '+j.authorizationRef},(n,meta)=>{
     if(meta.conflicts){state='partial';summary+=`; ${meta.conflicts} alterações em revisão`;}
-    assertLease(db,id);const observation=db.prepare('INSERT OR IGNORE INTO operation_event_observations SELECT ?,?,event_id,? FROM event_listings WHERE platform_id=? AND external_id=?');for(const external of meta.accepted)observation.run(j.id,hash(j),day,j.provider,external);
-    finish(db,id,state,n,summary); // importação e estado da tarefa são atômicos
+    assertLease(db,id,now);const observation=db.prepare('INSERT OR IGNORE INTO operation_event_observations SELECT ?,?,event_id,? FROM event_listings WHERE platform_id=? AND external_id=?');for(const external of meta.accepted)observation.run(j.id,hash(j),day,j.provider,external);
+    finish(db,id,state,n,summary,null,null,now); // importação e estado da tarefa são atômicos
    },{tolerateConflicts:true}); // nunca declarar cobertura municipal automaticamente
   }else if(j.kind==='metrics'){
-   const batch=await loadFeed(j,ctx);if(j.commercial===true){fingerprint=hash(batch);records=importCommercial(db,{...batch,authorization_ref:j.authorizationRef},{network:j.provider,day},n=>{assertLease(db,id);state=n?'success':'unchanged';summary=`${n} observações comerciais`;finish(db,id,state,n,summary,fingerprint);});}else{if(batch.network!==j.provider||batch.account_id!==j.accountId||!Array.isArray(batch.rows)||batch.rows.length>50000)throw Error('Métricas incompatíveis');
-   fingerprint=hash(batch);records=importNationalMetrics(db,batch.rows,{accountId:j.accountId,network:j.provider,day},n=>{assertLease(db,id);state=n?'success':batch.rows.length?'unchanged':'empty';summary=`${n} novas fotografias nacionais`;finish(db,id,state,n,summary,fingerprint);});}
+   const isOfficialAdapter=['instagram','youtube','spotify'].includes(j.adapter);
+   const batch=j.adapter==='instagram'?await instagramMetrics(db,j,ctx):j.adapter==='youtube'?await youtubeMetrics(db,j,ctx):j.adapter==='spotify'?await spotifyMetrics(db,j,ctx):await loadFeed(j,ctx);
+   if(j.commercial===true){
+    fingerprint=hash(batch);
+    records=importCommercial(db,{...batch,authorization_ref:j.authorizationRef},{network:j.provider,day},n=>{assertLease(db,id,now);state=n?'success':'unchanged';summary=`${n} observações comerciais`;finish(db,id,state,n,summary,fingerprint,null,now);});
+   }else{
+    if(batch.network!==j.provider||batch.account_id!==j.accountId||!Array.isArray(batch.rows)||batch.rows.length>50000)throw Error('Métricas incompatíveis');
+    fingerprint=hash(batch);
+    const allowIntradayUpdate=Boolean(j.intraday||isOfficialAdapter||batch.intraday===true);
+    const syncCommercial=Boolean(j.syncCommercial??isOfficialAdapter);
+    records=importNationalMetrics(db,batch.rows,{accountId:j.accountId,network:j.provider,day,allowIntradayUpdate,syncCommercial,authorizationRef:j.authorizationRef,maxChangeRatio:j.maxChangeRatio??10},n=>{assertLease(db,id,now);state=n?'success':batch.rows.length?'unchanged':'empty';summary=`${n} fotografias nacionais (${j.provider})`;finish(db,id,state,n,summary,fingerprint,null,now);});
+   }
   }else{
    let report;if(j.adapter==='youtube'){
     const a=db.prepare("SELECT external_id FROM social_accounts WHERE id=? AND network='YouTube' AND identity_confirmed=1").get(j.accountId);if(!a?.external_id)throw Error('Conta YouTube não confirmada');const end=shift(day,-3),start=shift(end,-29);const rows=await fetchYouTubeReport({channel:a.external_id,token:await youtubeToken(j,ctx),start,end,fetcher:ctx.fetcher});report={account_id:j.accountId,network:'YouTube',metric:'views',quality:'verified',period_start:start,period_end:end,report_ref:`youtube:${j.accountId}:${start}:${end}`,coverage:'partial',rows};
    }else report=await loadFeed(j,ctx);
    if(report.network!==j.provider||(j.provider==='TikTok'?report.talent_id!==j.talentId:report.account_id!==j.accountId)||!Array.isArray(report.rows)||report.rows.length>50000||report.period_end>day)throw Error('Relatório incompatível');
    fingerprint=hash(report);const previous=db.prepare("SELECT 1 FROM operation_runs WHERE job_id=? AND config_hash=? AND fingerprint=? AND state IN ('success','partial','unchanged')").get(j.id,hash(j),fingerprint);
-   assertLease(db,id);if(previous){state='unchanged';summary='Relatório já importado';}else{const imported=j.provider==='TikTok'?importRegionalReport(db,{...report,authorization_ref:j.authorizationRef}):importAudience(db,{...report,authorization_ref:j.authorizationRef});state=imported.status??'partial';records=imported.imported;summary=`${records} municípios; ${imported.unresolved?.length??0} não resolvidos`;}
+   assertLease(db,id,now);if(previous){state='unchanged';summary='Relatório já importado';}else{const imported=j.provider==='TikTok'?importRegionalReport(db,{...report,authorization_ref:j.authorizationRef}):importAudience(db,{...report,authorization_ref:j.authorizationRef});state=imported.status??'partial';records=imported.imported;summary=`${records} municípios; ${imported.unresolved?.length??0} não resolvidos`;}
   }
-  if(!['events','metrics'].includes(j.kind))finish(db,id,state,records,summary,fingerprint);result.push({job:j.id,state,records});
+  if(!['events','metrics'].includes(j.kind))finish(db,id,state,records,summary,fingerprint,null,now);result.push({job:j.id,state,records});
  }catch(error){ // Never expose tokens, upstream URL, personal data or raw exception strings in the dashboard.
-  const message=String(error?.message??''),code=/^HTTP (\d{3})/.exec(message)?.[1];const reason=code?'HTTP '+code:message==='Credencial não configurada'?'Credencial não configurada':message==='Lote incompatível ou desatualizado'?'Lote incompatível ou desatualizado':message.startsWith('Identidade alterada:')?'Identidade ou data do anúncio mudou: revisar antes de reimportar':message.startsWith('Município desconhecido:')?'Município não localizado na base geográfica':message.startsWith('Paginação')?'Resposta de paginação inesperada':'Falha de coleta/validação; verificar configuração e fonte';const retry=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>0?new Date(Date.now()+Math.min(error.retryAfterMs,365*86400000)).toISOString():null;finish(db,id,'failed',0,reason,null,retry);alert(db,day,'collection',j.id,'Falha de coleta; verificar configuração e fonte');result.push({job:j.id,state:'failed'});
+  const message=String(error?.message??''),code=/^HTTP (\d{3})/.exec(message)?.[1];const reason=code?'HTTP '+code:message==='Credencial não configurada'?'Credencial não configurada':message==='Lote incompatível ou desatualizado'?'Lote incompatível ou desatualizado':message.startsWith('Variação suspeita')?'Variação suspeita detectada; revisão manual obrigatória':message.startsWith('Identidade alterada:')?'Identidade ou data do anúncio mudou: revisar antes de reimportar':message.startsWith('Município desconhecido:')?'Município não localizado na base geográfica':message.startsWith('Paginação')?'Resposta de paginação inesperada':'Falha de coleta/validação; verificar configuração e fonte';
+  if(j.kind==='metrics'&&j.accountId){try{recordAccountCollectionStatus(db,j.accountId,'failed',reason,(options.now??new Date()).toISOString());}catch{}}
+  const retry=Number.isFinite(error?.retryAfterMs)&&error.retryAfterMs>0?new Date(+now+Math.min(error.retryAfterMs,365*86400000)).toISOString():null;finish(db,id,'failed',0,reason,null,retry,now);alert(db,day,'collection',j.id,reason.startsWith('Variação suspeita')?reason:'Falha de coleta; verificar configuração e fonte');result.push({job:j.id,state:'failed'});
  }}return result;
 }
 export function operationsStatus(db){

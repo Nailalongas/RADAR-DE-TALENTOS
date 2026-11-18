@@ -241,7 +241,7 @@ async function selectArtist(a){
   const left=el('div',null,box),right=el('div',null,box);
   el('h3',a.name,left);
   el('p',[sizes[a.size],...(a.modalities?.length?a.modalities:['Modalidade geral'])].join(' · '),left);
-  el('small',`Última coleta: ${a.observed_on} · Base (${activeParams.get('days')}d): ${a.baseline_on??'indisponível'} · Fonte: ${a.source}`,left);
+  el('small',a.freshness_label?`${a.freshness_label} · Base (${activeParams.get('days')}d): ${a.baseline_on??'indisponível'}`:`Última coleta: ${a.observed_on} · Base (${activeParams.get('days')}d): ${a.baseline_on??'indisponível'} · Fonte: ${a.source}`,left);
   el('strong',`${number(a.value)} ${labels[activeParams.get('metric')]}`,right);
   const deltaP=el('p',`Variação (${activeParams.get('days')}d): ${signed(a.growth)} (${a.growth_pct==null?'—':signed(a.growth_pct)+'%'})`,right);
   deltaP.className=a.growth>0?'positive':a.growth<0?'negative':'';
@@ -345,7 +345,7 @@ async function loadArtistCards(a,id){
             if(wi&&wi.growth_pct!=null)el('span',`${w}d: ${signed(wi.growth_pct)}%`,wb).className='win-badge';
           }
         }
-        el('small',`${v.baseline_on??'Sem base'} → ${v.observed_on} · ${v.source}`,x);
+        el('small',v.freshness_label?`${v.baseline_on??'Sem base'} → ${v.freshness_label}`:`${v.baseline_on??'Sem base'} → ${v.observed_on} · ${v.source}`,x);
       }else el('p','Sem observação nacional no período.',x);
       if(geo?.report){
         const c=geo.cities[0],r=geo.report;
