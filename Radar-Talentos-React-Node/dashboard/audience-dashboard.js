@@ -12,21 +12,176 @@ options(field('region'),regions.map(name=>({name,id:name})),'Brasil inteiro');
 function updateUF(){const list=regionUF[field('region').value]?.split(' ')??allUF;options(field('uf'),list.map(name=>({name,id:name})),'Todos');}
 updateUF();
 function subs(){options(field('submodality'),mods.filter(m=>!field('modality').value||field('modality').value===m.id).flatMap(m=>m.submodalities.map(s=>({id:String(s.id),name:m.name+' / '+s.name}))),'Todas')}
-const normalize=s=>s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
-function filterCities(){const q=normalize($('city-search').value.trim()),r=field('region').value,u=field('uf').value;const rows=catalog.filter(c=>(!r||c.region===r)&&(!u||c.uf===u)&&(!q||normalize(c.name).includes(q)||c.code===q));options(field('city'),rows.map(c=>({id:c.code,name:c.name+' / '+c.uf})),'Adicionar município');}
-function filterCenters(){const q=normalize($('center-search').value.trim());options(field('center'),catalog.filter(c=>c.lat!=null&&(!q||normalize(c.name).includes(q)||c.code===q||selected.has(c.code))).map(c=>({id:c.code,name:c.name+' / '+c.uf})),'Sem raio');}
+const normalize=s=>String(s??'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+
+function matchCityByText(raw,requireCoords=false){
+ const q=normalize(raw).replace(/[\/,-]+/g,' ').replace(/\s+/g,' ').trim();
+ if(!q)return null;
+ const r=field('region').value,u=field('uf').value;
+ const pool=catalog.filter(c=>(!requireCoords||c.lat!=null)&&(!r||c.region===r)&&(!u||c.uf===u));
+ const exactFull=pool.find(c=>normalize(`${c.name} / ${c.uf}`).replace(/[\/,-]+/g,' ').replace(/\s+/g,' ')===q||normalize(`${c.name} ${c.uf}`)===q||c.code===q);
+ if(exactFull)return exactFull;
+ const exactName=pool.find(c=>normalize(c.name)===q);
+ if(exactName)return exactName;
+ const globalExact=catalog.find(c=>(!requireCoords||c.lat!=null)&&(normalize(`${c.name} / ${c.uf}`).replace(/[\/,-]+/g,' ').replace(/\s+/g,' ')===q||normalize(`${c.name} ${c.uf}`)===q||normalize(c.name)===q));
+ if(globalExact)return globalExact;
+ return pool.find(c=>normalize(c.name).startsWith(q))||pool.find(c=>normalize(c.name).includes(q))||null;
+}
+
+function updateMunicipalityDatalist(queryText=''){
+ const dl=$('municipality-datalist');
+ if(!dl)return;
+ const q=normalize(queryText).replace(/[\/,-]+/g,' ').trim();
+ const r=field('region').value,u=field('uf').value;
+ const matches=catalog.filter(c=>(!r||c.region===r)&&(!u||c.uf===u)&&(!q||normalize(`${c.name} ${c.uf}`).includes(q)||c.code===q)).slice(0,250);
+ dl.replaceChildren(...matches.map(c=>{const o=document.createElement('option');o.value=`${c.name} / ${c.uf}`;return o;}));
+}
+
+function filterCities(){
+ const raw=$('city-search').value.trim();
+ const q=normalize(raw),r=field('region').value,u=field('uf').value;
+ const rows=catalog.filter(c=>(!r||c.region===r)&&(!u||c.uf===u)&&(!q||normalize(`${c.name} / ${c.uf}`).includes(q)||normalize(c.name).includes(q)||c.code===q));
+ options(field('city'),rows.map(c=>({id:c.code,name:c.name+' / '+c.uf})),'Todos');
+ updateMunicipalityDatalist(raw);
+ const exact=catalog.find(c=>normalize(`${c.name} / ${c.uf}`)===q);
+ if(exact){
+  $('city-search').value='';
+  filterCities();
+  chooseCity(exact.code);
+ }
+}
+
+function filterCenters(){
+ const raw=$('center-search').value.trim();
+ const q=normalize(raw);
+ const rows=catalog.filter(c=>c.lat!=null&&(!q||normalize(`${c.name} / ${c.uf}`).includes(q)||normalize(c.name).includes(q)||c.code===q||selected.has(c.code)));
+ options(field('center'),rows.map(c=>({id:c.code,name:c.name+' / '+c.uf})),'Sem raio');
+ updateMunicipalityDatalist(raw);
+ const exact=catalog.find(c=>c.lat!=null&&normalize(`${c.name} / ${c.uf}`)===q);
+ if(exact){
+  field('center').value=exact.code;
+  if(!field('radius').value||Number(field('radius').value)<=0){
+   field('radius').value='100';
+   $('radius-slider').value='100';
+  }
+  search();
+ }
+}
+
 function selectedChips(){const box=$('selected-cities');box.replaceChildren();for(const code of selected){const c=catalog.find(x=>x.code===code);const b=el('button',(c?c.name+' / '+c.uf:code)+' ×');b.type='button';b.setAttribute('aria-label','Remover '+(c?.name??code));b.addEventListener('click',()=>{selected.delete(code);selectedChips();search()});box.append(b);}}
 function clearCities(){selected.clear();field('city').value='';$('city-search').value='';selectedChips();}
 function chooseState(uf){const r=Object.keys(regionUF).find(r=>regionUF[r].split(' ').includes(uf))??'';field('region').value=r;updateUF();field('uf').value=uf;clearCities();filterCities();search()}
 function chooseCity(code){if(selected.has(code))selected.delete(code);else if(selected.size<100)selected.add(code);else{ $('message').textContent='Selecione até 100 municípios ou use região, estado ou raio.';field('city').value='';return;}field('city').value='';selectedChips();search()}
 field('region').addEventListener('change',()=>{updateUF();clearCities();filterCities();search()});field('uf').addEventListener('change',()=>{clearCities();filterCities();search()});
 field('city').addEventListener('change',()=>{if(field('city').value)chooseCity(field('city').value)});
-$('city-search').addEventListener('input',filterCities);$('center-search').addEventListener('input',filterCenters);
-$('clear-territory').addEventListener('click',()=>{field('region').value='';updateUF();field('uf').value='';field('center').value='';field('radius').value='';$('radius-slider').value=0;clearCities();filterCities();filterCenters();search()});
+$('city-search').addEventListener('input',filterCities);
+$('city-search').addEventListener('keydown',e=>{
+ if(e.key==='Enter'){
+  e.preventDefault();
+  const m=matchCityByText($('city-search').value,false);
+  if(m){$('city-search').value='';filterCities();chooseCity(m.code);}
+ }
+});
+$('center-search').addEventListener('input',filterCenters);
+$('center-search').addEventListener('keydown',e=>{
+ if(e.key==='Enter'){
+  e.preventDefault();
+  const m=matchCityByText($('center-search').value,true);
+  if(m){
+   $('center-search').value=`${m.name} / ${m.uf}`;
+   filterCenters();
+   field('center').value=m.code;
+   if(!field('radius').value||Number(field('radius').value)<=0){field('radius').value='100';$('radius-slider').value='100';}
+   search();
+  }
+ }
+});
+$('clear-territory').addEventListener('click',()=>{field('region').value='';updateUF();field('uf').value='';field('center').value='';$('center-search').value='';field('radius').value='';$('radius-slider').value=0;clearCities();filterCities();filterCenters();search()});
 field('modality').addEventListener('change',()=>{field('submodality').value='';subs();search()});
 for(const key of ['submodality','category','talent'])field(key).addEventListener('change',searchOnChange);
-function searchOnChange(){search()}
-field('center').addEventListener('change',()=>{if(!field('center').value){field('radius').value='';$('radius-slider').value=0;}else if(field('radius').value===''){field('radius').value='100';$('radius-slider').value=100;}search()});field('radius').addEventListener('change',()=>{if(field('radius').value===''){field('center').value='';search()}else if(field('center').value)search();else $('message').textContent='Escolha o centro do raio para consultar.'});$('radius-slider').addEventListener('change',()=>{if(field('center').value)search();else $('message').textContent='Escolha o centro do raio para consultar.'});
+function searchOnChange(){
+ if($('artist-quick-search')){
+  const opt=field('talent').selectedOptions?.[0];
+  $('artist-quick-search').value=field('talent').value&&opt?opt.textContent:'';
+ }
+ search();
+}
+
+// Busca rápida de artistas no topo do painel
+function applyQuickArtistSearch(){
+ const input=$('artist-quick-search');
+ if(!input)return;
+ const q=normalize(input.value);
+ if(!q){
+  field('talent').value='';
+  search();
+  return;
+ }
+ const opts=[...field('talent').options].filter(o=>o.value);
+ const exact=opts.find(o=>normalize(o.textContent)===q||normalize(o.value)===q);
+ const partial=exact||opts.find(o=>normalize(o.textContent).includes(q));
+ if(partial){
+  field('talent').value=partial.value;
+  input.value=partial.textContent;
+  search();
+ }else{
+  $('message').textContent=`Artista "${input.value.trim()}" sem registros neste relatório; tente outra mídia ou período.`;
+ }
+}
+$('artist-quick-btn')?.addEventListener('click',applyQuickArtistSearch);
+$('artist-quick-search')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyQuickArtistSearch();}});
+$('artist-quick-search')?.addEventListener('change',()=>{
+ const q=normalize($('artist-quick-search').value);
+ if([...field('talent').options].some(o=>o.value&&normalize(o.textContent)===q)){
+  applyQuickArtistSearch();
+ }
+});
+
+// Lógica opcional de raio: "Sem raio" (vazio ou 0) nunca bloqueia a consulta
+field('center').addEventListener('change',()=>{
+ if(!field('center').value){
+  field('radius').value='';
+  $('radius-slider').value=0;
+  $('center-search').value='';
+ }else if(!field('radius').value||Number(field('radius').value)<=0){
+  field('radius').value='100';
+  $('radius-slider').value=100;
+ }
+ search();
+});
+field('radius').addEventListener('change',()=>{
+ const num=Number(field('radius').value);
+ if(field('radius').value===''||!Number.isFinite(num)||num<=0){
+  field('radius').value='';
+  $('radius-slider').value=0;
+  field('center').value='';
+  search();
+  return;
+ }
+ if(!field('center').value){
+  const m=matchCityByText($('center-search').value,true)||(selected.size===1?catalog.find(c=>c.code===[...selected][0]&&c.lat!=null):null);
+  if(m)field('center').value=m.code;
+ }
+ if(field('center').value)search();
+ else $('message').textContent='Digite ou escolha a cidade centro do raio (ou deixe Raio vazio para Sem raio).';
+});
+$('radius-slider').addEventListener('change',()=>{
+ const num=Number($('radius-slider').value);
+ if(!num||num<=0){
+  field('radius').value='';
+  field('center').value='';
+  search();
+  return;
+ }
+ field('radius').value=String(num);
+ if(!field('center').value){
+  const m=matchCityByText($('center-search').value,true)||(selected.size===1?catalog.find(c=>c.code===[...selected][0]&&c.lat!=null):null);
+  if(m)field('center').value=m.code;
+ }
+ if(field('center').value)search();
+ else $('message').textContent='Digite ou escolha a cidade centro do raio (ou volte o controle para 0 / Sem raio).';
+});
+
 function categoryCards(rows,scope,grand=null){const k=$('kpis');k.replaceChildren();$('category-scope').textContent=scope;const byId=new Map(rows.map(r=>[String(r.id),r.value]));const all=el('button');all.className='kpi';all.type='button';all.setAttribute('aria-pressed',String(!field('category').value));all.append(el('span','Total de talentos'),el('strong',grand==null?'—':fmt(grand)));if(scope.startsWith('Talentos com')&&catalogTotal!=null)all.append(el('small','Cadastro nacional: '+fmt(catalogTotal)));all.addEventListener('click',()=>{field('category').value='';search()});k.append(all);for(const c of categoryCatalog){const b=el('button');b.type='button';b.className='kpi';b.setAttribute('aria-pressed',String(field('category').value===String(c.id)));b.append(el('span',c.name),el('strong',byId.has(String(c.id))?fmt(byId.get(String(c.id))):'—'));if(scope.startsWith('Talentos com'))b.append(el('small','Cadastro nacional: '+fmt(c.value)));b.addEventListener('click',()=>{field('category').value=field('category').value===String(c.id)?'':String(c.id);search()});k.append(b);}}
 function svg(tag,attrs={}){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);Object.entries(attrs).forEach(([k,v])=>e.setAttribute(k,v));return e}
 const project=([lon,lat])=>[20+(lon+75)*15,20+(6-lat)*13];
@@ -35,10 +190,112 @@ function selectionSummary(r){const rows=[...selected].map(code=>{const c=catalog
 
 const names={views:'Visualizações',followers:'Seguidores',reach:'Alcance',listeners:'Ouvintes',streams:'Reproduções',subscribers:'Inscritos'};let reports=[],activeReports=[],reportSeq=0;
 function params(){const r=activeReports[Number(field('report').value)];if(!r||field('report').value==='')return null;return new URLSearchParams({network:r.network,metric:r.metric,start:r.period_start,end:r.period_end,source:r.source,quality:r.quality});}
-async function reportChanged(){const seq=++reportSeq;request++;const p=params();field('talent').replaceChildren(new Option('Todos com dados',''));if(p){try{const rows=await get('/api/regional/talents?'+p);if(seq!==reportSeq)return;options(field('talent'),rows,'Todos com dados')}catch(e){if(seq===reportSeq)$('message').textContent=e.message;return;}}if(seq===reportSeq)await search();}
+async function reportChanged(){
+ const seq=++reportSeq;request++;const p=params();field('talent').replaceChildren(new Option('Todos com dados',''));
+ if(p){
+  try{
+   const rows=await get('/api/regional/talents?'+p);
+   if(seq!==reportSeq)return;
+   options(field('talent'),rows,'Todos com dados');
+   const dl=$('talent-datalist');
+   if(dl)dl.replaceChildren(...rows.map(r=>{const o=document.createElement('option');o.value=r.name;return o;}));
+  }catch(e){
+   if(seq===reportSeq)$('message').textContent=e.message;
+   return;
+  }
+ }
+ if(seq===reportSeq)await search();
+}
 function metricChanged(){activeReports=reports.filter(r=>r.network===field('network').value&&(!field('metric').value||r.metric===field('metric').value)&&(!field('days').value||(Date.parse(r.period_end)-Date.parse(r.period_start))/86400000+1===Number(field('days').value)));field('report').replaceChildren(...activeReports.map((r,i)=>new Option(`${names[r.metric]??r.metric} · ${r.period_start} a ${r.period_end} · ${r.source} · ${r.quality==='verified'?'Verificado':'Estimado'}`,String(i))));if(!activeReports.length)field('report').append(new Option('Nenhum relatório disponível',''));return reportChanged();}
 function networkChanged(){const keys=[...new Set(reports.filter(r=>r.network===field('network').value).map(r=>r.metric))];options(field('metric'),keys.map(id=>({id,name:names[id]??id})),'Todos disponíveis');if(keys.includes('views'))field('metric').value='views';else if(field('network').value==='Spotify'&&keys.includes('streams'))field('metric').value='streams';return metricChanged();}
 async function loadReports(){reports=await get('/api/regional/reports');table('coverage',['Mídia','Métrica','Início','Fim','Fonte','Qualidade','Registros','Artistas'],reports.map(r=>[r.network,names[r.metric]??r.metric,r.period_start,r.period_end,r.source,r.quality==='verified'?'Verificado':'Estimado',r.records,r.talents]));await networkChanged();}
-async function search(keepPage=false){if(!keepPage)offset=0;const n=++request,p=params();if(field('radius').value!==''&&!field('center').value){$('message').textContent='Escolha o centro do raio para consultar.';return;}const k=$('audience-kpis');if(!p){$('message').textContent='Nenhum relatório municipal disponível para esta mídia. Importe uma fonte autorizada.';k.replaceChildren();const territorial=!!(field('region').value||field('uf').value||selected.size||field('center').value||field('radius').value||field('modality').value||field('submodality').value||field('talent').value);categoryCards(territorial?[]:categoryCatalog,territorial?'Categorias: sem relatório para este recorte':'Cadastro nacional de talentos — não mede audiência nesta mídia ou período',territorial?null:catalogTotal);selectionSummary(null);$('growth-period').textContent='Aguardando relatório regional.';table('growth',[],[]);for(const id of ['regions','states','cities','region-artists'])bars(id,[]);table('artists',[],[]);map({byState:[],places:[]});$('page').textContent='Sem dados';$('prev').disabled=$('next').disabled=true;return;}$('message').textContent='Consultando…';try{for(const key of ['talent','category','modality','submodality','region','uf','center','radius'])if(field(key).value!=='')p.set(key,field(key).value);for(const code of selected)p.append('cities',code);p.set('limit','100');p.set('offset',String(offset));const r=await get('/api/regional/ranking?'+p);if(n!==request)return;const count=r.places.reduce((a,b)=>a+b.value,0);categoryCards(r.categories||[],'Talentos com registros no recorte / relatório selecionado (antes da categoria selecionada)',r.scopeTotal);selectionSummary(r);table('growth',['Artista','Variação','Anterior','Atual'],(r.growthLeaders||[]).map(a=>[a.name,a.growth_pct==null?`${fmt(a.growth)} (variação absoluta)`: `${a.growth_pct.toFixed(1)}%`,fmt(a.previous_value),fmt(a.value)]));$('growth-period').textContent=r.growthLeaders?.length?`Comparação com ${r.growthLeaders[0].previous_start} a ${r.growthLeaders[0].previous_end}; ${r.comparableCount} artistas com municípios comparáveis.`:'Sem período anterior comparável nesta fonte, métrica e território.';$('message').textContent=(r.total?'Dados do relatório selecionado. ':'Nenhum registro neste recorte. ')+r.notice+(r.excludedCoordinates?` ${r.excludedCoordinates} registros sem coordenadas foram excluídos do raio.`:'');k.replaceChildren();for(const [label,value] of [[names[r.metric]??r.metric,count],['Artistas com dados',r.total],['Municípios com dados',r.places.length]]){const box=el('div');box.className='kpi';box.append(el('span',label),el('strong',r.total?fmt(value):'—'));k.append(box);}bars('regions',r.byRegion);bars('region-artists',r.byRegionTalent||[]);bars('states',r.byState);bars('cities',r.places.slice(0,30).map(x=>({name:x.name+' / '+x.uf,value:x.value})));table('artists',['Posição','Artista','Valor','Municípios'],r.items.map(a=>{const b=el('button',a.name);b.type='button';b.className='link';b.addEventListener('click',()=>{field('talent').value=a.id;search()});return[a.rank,b,fmt(a.value),a.cities]}));total=r.total;$('page').textContent=total?`${offset+1}–${Math.min(offset+100,total)} de ${total}`:'Sem dados';$('prev').disabled=offset===0;$('next').disabled=offset+100>=total;map(r);}catch(e){if(n===request)$('message').textContent=e.message+' — resultados anteriores não atualizados.';}}
-form.addEventListener('submit',e=>{e.preventDefault();search()});field('network').addEventListener('change',networkChanged);field('report').addEventListener('change',reportChanged);field('days').addEventListener('change',metricChanged);field('metric').addEventListener('change',metricChanged);$('radius-slider').addEventListener('input',()=>{field('radius').value=$('radius-slider').value});field('radius').addEventListener('input',()=>{if(field('radius').value!=='')$('radius-slider').value=field('radius').value});$('reload').addEventListener('click',()=>loadReports().catch(e=>$('message').textContent=e.message));$('prev').addEventListener('click',()=>{offset=Math.max(0,offset-100);search(true)});$('next').addEventListener('click',()=>{if(offset+100<total){offset+=100;search(true)}});
+
+async function search(keepPage=false){
+ if(!keepPage)offset=0;
+ const n=++request,p=params();
+ // Se o usuário digitou um município em #city-search e clicou em Consultar, aplica-o automaticamente
+ if($('city-search')?.value.trim()){
+  const typedCity=matchCityByText($('city-search').value,false);
+  if(typedCity){
+   selected.add(typedCity.code);
+   $('city-search').value='';
+   selectedChips();
+  }
+ }
+ const rawRadius=field('radius').value.trim();
+ const numRadius=rawRadius===''?0:Number(rawRadius);
+ const hasActiveRadius=Number.isFinite(numRadius)&&numRadius>0;
+ if(!hasActiveRadius){
+  // "Sem raio": limpa qualquer valor 0 ou centro pendente sem jamais bloquear a consulta
+  field('radius').value='';
+  if($('radius-slider'))$('radius-slider').value='0';
+  if(!field('center').value)$('center-search').value='';
+ }else if(!field('center').value){
+  const autoCenter=matchCityByText($('center-search').value,true)||(selected.size===1?catalog.find(c=>c.code===[...selected][0]&&c.lat!=null):null);
+  if(autoCenter){
+   field('center').value=autoCenter.code;
+  }else{
+   // Se "Sem raio" estiver selecionado no select de centro e não houver cidade centro digitada, realiza a consulta sem restrição de raio
+   field('radius').value='';
+   if($('radius-slider'))$('radius-slider').value='0';
+  }
+ }
+ const k=$('audience-kpis');
+ if(!p){
+  $('message').textContent='Nenhum relatório municipal disponível para esta mídia. Importe uma fonte autorizada.';
+  k.replaceChildren();
+  const territorial=!!(field('region').value||field('uf').value||selected.size||field('center').value||field('radius').value||field('modality').value||field('submodality').value||field('talent').value);
+  categoryCards(territorial?[]:categoryCatalog,territorial?'Categorias: sem relatório para este recorte':'Cadastro nacional de talentos — não mede audiência nesta mídia ou período',territorial?null:catalogTotal);
+  selectionSummary(null);
+  $('growth-period').textContent='Aguardando relatório regional.';
+  table('growth',[],[]);
+  for(const id of ['regions','states','cities','region-artists'])bars(id,[]);
+  table('artists',[],[]);
+  map({byState:[],places:[]});
+  $('page').textContent='Sem dados';
+  $('prev').disabled=$('next').disabled=true;
+  return;
+ }
+ $('message').textContent='Consultando…';
+ try{
+  for(const key of ['talent','category','modality','submodality','region','uf'])if(field(key).value!=='')p.set(key,field(key).value);
+  if(field('center').value&&field('radius').value&&Number(field('radius').value)>0){
+   p.set('center',field('center').value);
+   p.set('radius',field('radius').value);
+  }
+  for(const code of selected)p.append('cities',code);
+  p.set('limit','100');
+  p.set('offset',String(offset));
+  const r=await get('/api/regional/ranking?'+p);
+  if(n!==request)return;
+  const count=r.places.reduce((a,b)=>a+b.value,0);
+  categoryCards(r.categories||[],'Talentos com registros no recorte / relatório selecionado (antes da categoria selecionada)',r.scopeTotal);
+  selectionSummary(r);
+  table('growth',['Artista','Variação','Anterior','Atual'],(r.growthLeaders||[]).map(a=>[a.name,a.growth_pct==null?`${fmt(a.growth)} (variação absoluta)`: `${a.growth_pct.toFixed(1)}%`,fmt(a.previous_value),fmt(a.value)]));
+  $('growth-period').textContent=r.growthLeaders?.length?`Comparação com ${r.growthLeaders[0].previous_start} a ${r.growthLeaders[0].previous_end}; ${r.comparableCount} artistas com municípios comparáveis.`:'Sem período anterior comparável nesta fonte, métrica e território.';
+  const radiusLabel=(field('center').value&&field('radius').value&&Number(field('radius').value)>0)?`Raio de ${field('radius').value} km aplicado. `:'Consulta sem restrição de raio. ';
+  $('message').textContent=(r.total?'Dados do relatório selecionado. ':'Nenhum registro neste recorte. ')+radiusLabel+r.notice+(r.excludedCoordinates?` ${r.excludedCoordinates} registros sem coordenadas foram excluídos do raio.`:'');
+  k.replaceChildren();
+  for(const [label,value] of [[names[r.metric]??r.metric,count],['Artistas com dados',r.total],['Municípios com dados',r.places.length]]){
+   const box=el('div');box.className='kpi';box.append(el('span',label),el('strong',r.total?fmt(value):'—'));k.append(box);
+  }
+  bars('regions',r.byRegion);
+  bars('region-artists',r.byRegionTalent||[]);
+  bars('states',r.byState);
+  bars('cities',r.places.slice(0,30).map(x=>({name:x.name+' / '+x.uf,value:x.value})));
+  table('artists',['Posição','Artista','Valor','Municípios'],r.items.map(a=>{
+   const b=el('button',a.name);b.type='button';b.className='link';
+   b.addEventListener('click',()=>{field('talent').value=a.id;if($('artist-quick-search'))$('artist-quick-search').value=a.name;search()});
+   return[a.rank,b,fmt(a.value),a.cities];
+  }));
+  total=r.total;
+  $('page').textContent=total?`${offset+1}–${Math.min(offset+100,total)} de ${total}`:'Sem dados';
+  $('prev').disabled=offset===0;
+  $('next').disabled=offset+100>=total;
+  map(r);
+ }catch(e){
+  if(n===request)$('message').textContent=e.message+' — resultados anteriores não atualizados.';
+ }
+}
+form.addEventListener('submit',e=>{e.preventDefault();search()});field('network').addEventListener('change',networkChanged);field('report').addEventListener('change',reportChanged);field('days').addEventListener('change',metricChanged);field('metric').addEventListener('change',metricChanged);$('radius-slider').addEventListener('input',()=>{const v=Number($('radius-slider').value);field('radius').value=v>0?String(v):'';});field('radius').addEventListener('input',()=>{const v=Number(field('radius').value);$('radius-slider').value=Number.isFinite(v)&&v>0?String(v):'0';});$('reload').addEventListener('click',()=>loadReports().catch(e=>$('message').textContent=e.message));$('prev').addEventListener('click',()=>{offset=Math.max(0,offset-100);search(true)});$('next').addEventListener('click',()=>{if(offset+100<total){offset+=100;search(true)}});
 (async()=>{try{let cats,municipal;[mods,geo,cats,municipal]=await Promise.all([get('/api/radar/modalities'),get('/api/radar/geography'),get('/api/regional/categories'),get('/api/radar/municipalities')]);categoryCatalog=cats.categories;catalogTotal=cats.total;catalog=municipal.items;options(field('category'),categoryCatalog.map(c=>({id:String(c.id),name:c.name})),'Todas');options(field('modality'),mods,'Todas');subs();filterCities();filterCenters();categoryCards(categoryCatalog,'Cadastro nacional de talentos',catalogTotal);await loadReports()}catch(e){$('message').textContent=e.message}})();
