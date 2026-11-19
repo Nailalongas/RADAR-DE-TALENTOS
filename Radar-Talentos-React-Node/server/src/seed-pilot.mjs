@@ -4,6 +4,7 @@ import { importRegionalReport } from './regional-dashboard.mjs';
 import { importCommercial } from './commercial.mjs';
 import { upsertMetricCurrent } from './registry.mjs';
 import { REAL_BRAZILIAN_TALENTS_100 } from './catalog-100.mjs';
+import { openDiscovery, configureSource, ingest } from './discovery/engine.mjs';
 
 const UF_REGIONS = {
   AC: 'Norte',
@@ -552,10 +553,16 @@ export function seedPilotDatabaseIfEmpty(db) {
     );
     const opsConfig = JSON.parse(readFileSync(opsExamplePath, 'utf8'));
     const nowIso = new Date().toISOString();
+    const todayDay = nowIso.slice(0, 10);
     const insertJob = db.prepare(
       `INSERT OR IGNORE INTO operation_jobs(
          id, kind, provider, adapter, scope, config_hash, enabled, updated_at
        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    );
+    const insertRun = db.prepare(
+      `INSERT OR IGNORE INTO operation_runs(
+         id, job_id, config_hash, day, attempt, state, records, summary, started_at, finished_at, lease_until
+       ) VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?)`
     );
     for (const j of opsConfig.jobs || []) {
       const scope =
@@ -568,18 +575,146 @@ export function seedPilotDatabaseIfEmpty(db) {
               : j.kind === 'alerts'
                 ? 'Alertas internos dos recortes configurados'
                 : j.scope || 'Feed autorizado / escopo configurável';
+      const cfgHash = 'seed-' + j.id;
       insertJob.run(
         j.id,
         j.kind,
         j.provider,
         j.adapter,
         scope,
-        'seed-' + j.id,
+        cfgHash,
         j.enabled ? 1 : 0,
+        nowIso
+      );
+      const recCount =
+        j.kind === 'events'
+          ? 24
+          : j.kind === 'audience'
+            ? 84
+            : j.kind === 'metrics'
+              ? 300
+              : 6;
+      insertRun.run(
+        'run-seed-' + j.id,
+        j.id,
+        cfgHash,
+        todayDay,
+        'success',
+        recCount,
+        `Coleta inicial homologada (${j.provider})`,
+        nowIso,
+        nowIso,
         nowIso
       );
     }
   } catch {
     // Optional operation_jobs seed
+  }
+
+  try {
+    const discDb = openDiscovery();
+    try {
+      const srcCount = discDb.prepare('SELECT count(*) AS n FROM sources').get().n;
+      if (srcCount === 0) {
+        configureSource(discDb, {
+          id: 'catalogo-licenciado',
+          kind: 'licensed-file',
+          authorization: 'AUTH-RADAR-CATALOGO-2026',
+          history_allowed: true,
+          enabled: true
+        });
+        configureSource(discDb, {
+          id: 'youtube-api',
+          kind: 'youtube',
+          authorization: 'AUTH-YOUTUBE-DATA-V3-2026',
+          history_allowed: true,
+          enabled: true
+        });
+        configureSource(discDb, {
+          id: 'ticketmaster-br',
+          kind: 'ticketmaster',
+          authorization: 'AUTH-TICKETMASTER-DISCOVERY-BR',
+          history_allowed: false,
+          enabled: true
+        });
+        const obsIso = new Date(Date.now() - 3600_000).toISOString();
+        ingest(discDb, 'catalogo-licenciado', [
+          {
+            external_id: 'cand-liniker',
+            name: 'Liniker',
+            evidence_url: 'https://www.youtube.com/@LinikerOficial',
+            profiles: [
+              {
+                network: 'YouTube',
+                url: 'https://www.youtube.com/@LinikerOficial',
+                observations: [
+                  { metric: 'subscribers', value: 690000, observed_at: obsIso }
+                ]
+              },
+              {
+                network: 'Instagram',
+                url: 'https://www.instagram.com/linikeroficial',
+                observations: [
+                  { metric: 'followers', value: 1850000, observed_at: obsIso }
+                ]
+              }
+            ]
+          },
+          {
+            external_id: 'cand-anavitoria',
+            name: 'ANAVITÓRIA',
+            evidence_url: 'https://www.youtube.com/@ANAVITORIA',
+            profiles: [
+              {
+                network: 'YouTube',
+                url: 'https://www.youtube.com/@ANAVITORIA',
+                observations: [
+                  { metric: 'subscribers', value: 3120000, observed_at: obsIso }
+                ]
+              },
+              {
+                network: 'Instagram',
+                url: 'https://www.instagram.com/anavitoria',
+                observations: [
+                  { metric: 'followers', value: 3450000, observed_at: obsIso }
+                ]
+              }
+            ]
+          },
+          {
+            external_id: 'cand-nattan',
+            name: 'Nattan',
+            evidence_url: 'https://www.youtube.com/@NattanOficial',
+            profiles: [
+              {
+                network: 'YouTube',
+                url: 'https://www.youtube.com/@NattanOficial',
+                observations: [
+                  { metric: 'subscribers', value: 2450000, observed_at: obsIso }
+                ]
+              },
+              {
+                network: 'Instagram',
+                url: 'https://www.instagram.com/nattan',
+                observations: [
+                  { metric: 'followers', value: 8900000, observed_at: obsIso }
+                ]
+              }
+            ]
+          }
+        ]);
+        const jobTs = new Date().toISOString();
+        discDb
+          .prepare('INSERT OR IGNORE INTO collection_jobs VALUES(?,?,?,?,?)')
+          .run('job-seed-discovery-1', 'catalogo-licenciado', 'Importação inicial homologada', jobTs, 'success');
+        discDb
+          .prepare('INSERT OR IGNORE INTO collection_logs VALUES(?,?,?,?,?,?)')
+          .run('log-seed-discovery-1', 'job-seed-discovery-1', jobTs, 'success', 3, 'Catálogo inicial de candidatos carregado para triagem');
+      }
+    } finally {
+      discDb.close();
+    }
+  } catch {
+    // Optional discovery seed
   }
 }
