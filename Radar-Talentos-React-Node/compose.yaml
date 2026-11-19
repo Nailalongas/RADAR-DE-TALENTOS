@@ -1,45 +1,55 @@
+name: radar-talentos
+x-common: &common
+  build: .
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options: {max-size: "10m", max-file: "3"}
+  env_file: .env.worker
+  environment: &radar-env
+    NODE_ENV: production
+    RADAR_PERSISTENT_REQUIRED: "1"
+    RADAR_DATABASE_PATH: /app/data/radar.sqlite
+    DISCOVERY_DB: /app/data/discovery.sqlite
+    RADAR_DATA_DIR: /app/data
+    RADAR_USER: ${RADAR_USER:?configure RADAR_USER}
+    RADAR_PASSWORD: ${RADAR_PASSWORD:?configure RADAR_PASSWORD}
+  volumes:
+    - radar-data:/app/data
+    - radar-backups:/app/backups
+    - ./config/operations.json:/app/config/operations.json:ro
 services:
   radar:
-    build: .
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    env_file: .env.worker
-    environment:
-      RADAR_USER: ${RADAR_USER:?configure RADAR_USER}
-      RADAR_PASSWORD: ${RADAR_PASSWORD:?configure RADAR_PASSWORD}
-    ports:
-      - "127.0.0.1:3000:3000"
-    volumes:
-      - radar-data:/app/data
-      - ./config/operations.json:/app/config/operations.json:ro
+    <<: *common
+    ports: ["127.0.0.1:${RADAR_BIND_PORT:-3000}:3000"]
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
       interval: 30s
       timeout: 5s
       retries: 3
   worker:
-    build: .
+    <<: *common
     command: ["npm", "run", "ops:worker"]
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    env_file: .env.worker
     environment:
+      <<: *radar-env
       RADAR_AUTO_BACKUP: "1"
+      RADAR_BACKUP_DIR: /app/backups
       RADAR_BACKUP_KEEP_DAYS: "14"
     stop_grace_period: 90s
+    depends_on:
+      radar: {condition: service_healthy}
+  migrate:
+    <<: *common
+    profiles: [migration]
+    restart: "no"
     volumes:
       - radar-data:/app/data
-      - ./config/operations.json:/app/config/operations.json:ro
-    depends_on:
-      radar:
-        condition: service_healthy
+      - ./migration-input:/migration-input:ro
+    command: ["node", "--experimental-sqlite", "scripts/persistent-import.mjs", "/migration-input", "/app/data"]
 volumes:
   radar-data:
+    external: true
+    name: ${RADAR_DATA_VOLUME:-radar-talentos-data}
+  radar-backups:
+    external: true
+    name: ${RADAR_BACKUP_VOLUME:-radar-talentos-backups}

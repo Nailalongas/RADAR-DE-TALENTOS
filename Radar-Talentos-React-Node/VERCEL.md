@@ -1,3 +1,3 @@
-# Vercel — não indicada para a operação atual
+# Vercel e persistência
 
-O Radar de Talentos focado em eventos depende de um servidor Node com banco SQLite persistente e processo coletor contínuo. O deploy isolado da Vercel não oferece a API e o worker desta arquitetura. Os arquivos de preview da fase anterior permanecem como registro histórico, mas não devem ser usados para operar o catálogo. Para iniciar localmente ou publicar em um servidor persistente, siga [README.md](README.md) e [docs/radar-eventos-operacional.md](docs/radar-eventos-operacional.md).
+As funções da Vercel não devem hospedar os SQLite locais do Radar: `/tmp` é efêmero. A API de prévia retorna 503 para impedir gravações em bancos temporários. Use o servidor Node permanente com os dois bancos em volume persistente. A URL Vercel pode redirecionar para o domínio HTTPS desse servidor, somente depois da homologação. Consulte [PERSISTENCIA.md](PERSISTENCIA.md) para importar, iniciar, verificar, fazer backup e configurar o redirecionamento. Não faça o deploy desta mudança antes de o servidor permanente estar disponível.

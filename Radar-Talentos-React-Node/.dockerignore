@@ -5,3 +5,9 @@ data/*
 config/operations.json
 legado
 .dist
+
+# Não copiar bancos, credenciais ou arquivos de migração para a imagem
+migration-input/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm

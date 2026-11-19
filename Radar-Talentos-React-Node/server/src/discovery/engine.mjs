@@ -1,11 +1,11 @@
+import {ensurePersistentPath} from '../persistence.mjs';
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
-import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 const projectRoot=fileURLToPath(new URL('../../../',import.meta.url));
-const defaultDiscoveryDb=()=>{const cfg=process.env.DISCOVERY_DB||((process.env.VERCEL||process.env.AWS_LAMBDA_FUNCTION_NAME)?resolve(tmpdir(),'radar-discovery.sqlite'):'data/discovery.sqlite');return cfg===':memory:'?cfg:resolve(projectRoot,cfg);};
+const defaultDiscoveryDb=()=>{const cfg=process.env.DISCOVERY_DB||'data/discovery.sqlite';return cfg===':memory:'?cfg:resolve(projectRoot,cfg);};
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const now=()=>new Date().toISOString();
 const need=(v,label,max=500)=>{if(typeof v!=='string'||!v.trim()||v.length>max)throw Error('Inválido: '+label);return v.trim()};
@@ -13,7 +13,7 @@ const nets={Instagram:['followers','views','likes','comments'],YouTube:['subscri
 const hosts={Instagram:'instagram.com',YouTube:'youtube.com',Spotify:'open.spotify.com',TikTok:'tiktok.com'};
 export function profileUrl(network,raw){const u=new URL(need(raw,'URL',2000));if(!hosts[network]||u.protocol!=='https:'||u.username||u.password||u.port||![hosts[network],'www.'+hosts[network]].includes(u.hostname))throw Error('URL de perfil inválida');const p=u.pathname.replace(/\/$/,'');if(!p||p==='/')throw Error('Perfil sem identificador');return 'https://'+hosts[network]+p;}
 function evidenceUrl(raw){const u=new URL(need(raw,'evidência',2000));if(u.protocol!=='https:'||u.username||u.password)throw Error('Evidência HTTPS obrigatória');return u.href;}
-export function openDiscovery(path=defaultDiscoveryDb()){if(path!==':memory:')mkdirSync(dirname(path),{recursive:true});const db=new DatabaseSync(path);db.exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
+export function openDiscovery(path=defaultDiscoveryDb()){ensurePersistentPath(path,'DISCOVERY_DB');if(path!==':memory:')mkdirSync(dirname(path),{recursive:true});const db=new DatabaseSync(path);db.exec(`PRAGMA foreign_keys=ON; PRAGMA busy_timeout=5000; PRAGMA journal_mode=WAL;
 CREATE TABLE IF NOT EXISTS sources(id TEXT PRIMARY KEY, kind TEXT NOT NULL, authorization TEXT NOT NULL, history_allowed INTEGER NOT NULL CHECK(history_allowed IN(0,1)), enabled INTEGER NOT NULL CHECK(enabled IN(0,1)));
 CREATE TABLE IF NOT EXISTS candidates(id TEXT PRIMARY KEY,name TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN('pending','approved','rejected','published')), created_at TEXT NOT NULL, reviewed_at TEXT, reviewer TEXT, identity_evidence TEXT, radar_id TEXT);
 CREATE TABLE IF NOT EXISTS profiles(id TEXT PRIMARY KEY,candidate_id TEXT NOT NULL REFERENCES candidates(id),network TEXT NOT NULL,url TEXT NOT NULL,source_id TEXT NOT NULL REFERENCES sources(id),UNIQUE(network,url));

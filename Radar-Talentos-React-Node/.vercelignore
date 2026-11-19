@@ -1,4 +1,7 @@
 node_modules
-data/*.sqlite*
-data/backups
+data/
 .git
+.env*
+migration-input/
+config/operations.json
+config/discovery-refresh.json

@@ -1,3 +1,4 @@
+import {ensurePersistentPath} from '../persistence.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -13,6 +14,7 @@ export function databasePath() {
 }
 
 export function openDatabase(filename = databasePath()) {
+  ensurePersistentPath(filename,'RADAR_DATABASE_PATH');
   if (filename !== ':memory:') mkdirSync(dirname(resolve(filename)), { recursive: true });
   const db = new DatabaseSync(filename);
   try {
