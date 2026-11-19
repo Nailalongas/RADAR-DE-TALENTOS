@@ -4,6 +4,11 @@
   "outputDirectory": "dist",
   "redirects": [
     {
+      "source": "/",
+      "destination": "https://radar.34.70.140.94.sslip.io/",
+      "permanent": false
+    },
+    {
       "source": "/:path*",
       "destination": "https://radar.34.70.140.94.sslip.io/:path*",
       "permanent": false
