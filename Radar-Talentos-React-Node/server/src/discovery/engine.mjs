@@ -1,10 +1,11 @@
 import {DatabaseSync} from 'node:sqlite';
 import {mkdirSync} from 'node:fs';
 import {dirname,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
 import {fileURLToPath} from 'node:url';
 import {createHash,randomUUID} from 'node:crypto';
 const projectRoot=fileURLToPath(new URL('../../../',import.meta.url));
-const defaultDiscoveryDb=()=>{const cfg=process.env.DISCOVERY_DB||'data/discovery.sqlite';return cfg===':memory:'?cfg:resolve(projectRoot,cfg);};
+const defaultDiscoveryDb=()=>{const cfg=process.env.DISCOVERY_DB||((process.env.VERCEL||process.env.AWS_LAMBDA_FUNCTION_NAME)?resolve(tmpdir(),'radar-discovery.sqlite'):'data/discovery.sqlite');return cfg===':memory:'?cfg:resolve(projectRoot,cfg);};
 const hash=s=>createHash('sha256').update(s).digest('hex');
 const now=()=>new Date().toISOString();
 const need=(v,label,max=500)=>{if(typeof v!=='string'||!v.trim()||v.length>max)throw Error('Inválido: '+label);return v.trim()};
