@@ -1,4 +1,5 @@
 import { commercialQuery, metrics } from './commercial.mjs';
+import { PLATFORM_POLICIES } from './discovery.mjs';
 import { radarQuery, FilterError } from './radar.mjs';
 const networks=Object.keys(metrics);
 const regionalPreferred={YouTube:['views','subscribers'],Instagram:['views','reach','followers'],Spotify:['streams','listeners'],TikTok:['views','reach','followers']};
@@ -9,11 +10,15 @@ export function commercialInsights(db,p){
  if(modality&&!db.prepare('SELECT 1 FROM modalities WHERE id=?').get(modality))throw new FilterError('Modalidade inválida');
  const base=new URLSearchParams({network,days});if(p.get('end'))base.set('end',p.get('end'));const {start,end}=commercialQuery(db,new URLSearchParams({...Object.fromEntries(base),talent:'__period_validation__'}));
  const artist=talent?db.prepare('SELECT id,name FROM talents WHERE id=? AND blocked=0').get(talent):null;if(talent&&!artist)throw new FilterError('Artista não encontrado');
+ const findCurrent=db.prepare('SELECT status,status_detail,collected_at,source FROM metric_current WHERE talent_id=? AND network=? AND metric=? LIMIT 1');
  const national=artist?networks.map(n=>{
   const queryWin=d=>commercialQuery(db,new URLSearchParams({network:n,metric:primary[n],days:String(d),end,talent})).items[0]??null;
   const item=queryWin(days);
   const windows={7:Number(days)===7?item:queryWin(7),30:Number(days)===30?item:queryWin(30),90:Number(days)===90?item:queryWin(90)};
-  return {network:n,metric:primary[n],item,windows};
+  const cur=findCurrent.get(talent,n,primary[n]);
+  const policy=PLATFORM_POLICIES[n]??{};
+  const currentStatus=cur??(item?{status:'available',status_detail:'Atualizado',collected_at:item.collected_at??item.observed_on,source:item.source}:{status:policy.fallbackStatus??'pending_source',status_detail:policy.fallbackLabel??'Fonte pendente · Dados indisponíveis',collected_at:null,source:null});
+  return {network:n,metric:primary[n],item,windows,currentStatus};
  }):[];
  const subject=scope==='artist'?talent:'';
  const reports=db.prepare(`SELECT a.network,a.metric,a.period_start,a.period_end,a.source,a.quality,count(DISTINCT a.talent_id) talents FROM regional_audience a JOIN talents t ON t.id=a.talent_id JOIN municipalities m ON m.code=a.municipality_code WHERE t.blocked=0 AND a.period_start>=? AND a.period_end<=? AND (?='' OR a.talent_id=?) AND (?='' OR m.region=?) AND (?='' OR EXISTS(SELECT 1 FROM talent_modalities tm WHERE tm.talent_id=t.id AND tm.modality_id=?)) GROUP BY a.network,a.metric,a.period_start,a.period_end,a.source,a.quality ORDER BY a.period_end DESC,a.period_start ASC, a.source`).all(start,end,subject,subject,region,region,modality,modality);

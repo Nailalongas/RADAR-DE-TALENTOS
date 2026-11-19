@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { importEvents } from './events.mjs';
 import { importRegionalReport } from './regional-dashboard.mjs';
 import { importCommercial } from './commercial.mjs';
+import { upsertMetricCurrent } from './registry.mjs';
+import { REAL_BRAZILIAN_TALENTS_100 } from './catalog-100.mjs';
 
 const UF_REGIONS = {
   AC: 'Norte',
@@ -170,10 +172,10 @@ export function seedPilotDatabaseIfEmpty(db) {
 
   const isLegacyPilot = Boolean(
     db.prepare("SELECT 1 FROM talents WHERE id = 't-alok'").get() &&
-    !db.prepare("SELECT 1 FROM talents WHERE id = 't-claudio-duarte'").get()
+    db.prepare('SELECT count(*) AS n FROM talents WHERE blocked = 0').get().n < 100
   );
   if (isLegacyPilot) {
-    db.exec('DELETE FROM regional_audience; DELETE FROM regional_report_authorizations; DELETE FROM commercial_snapshots; DELETE FROM commercial_accounts;');
+    db.exec('DELETE FROM regional_audience; DELETE FROM regional_report_authorizations; DELETE FROM commercial_snapshots; DELETE FROM commercial_accounts; DELETE FROM metric_snapshots; DELETE FROM social_accounts; DELETE FROM metric_current;');
   }
 
   const audienceCount = db.prepare('SELECT count(*) AS n FROM regional_audience').get().n;
@@ -184,39 +186,16 @@ export function seedPilotDatabaseIfEmpty(db) {
     const prevStart = shiftDay(-59);
     const prevEnd = shiftDay(-30);
 
-    const pilotTalents = [
-      { id: 't-alok', name: 'Alok', mod: 'shows', subName: 'Eletrônico', catName: 'Cantores' },
-      { id: 't-natiruts', name: 'Natiruts', mod: 'shows', subName: 'MPB', catName: 'Cantores' },
-      { id: 't-thiaguinho', name: 'Thiaguinho', mod: 'shows', subName: 'Pagode', catName: 'Cantores' },
-      { id: 't-jorge-mateus', name: 'Jorge & Mateus', mod: 'shows', subName: 'Sertanejo', catName: 'Cantores' },
-      { id: 't-luan-santana', name: 'Luan Santana', mod: 'shows', subName: 'Sertanejo', catName: 'Cantores' },
-      { id: 't-walmir-alencar', name: 'Walmir Alencar', mod: 'shows', subName: 'Gospel', catName: 'Cantores' },
-      { id: 't-afonso-padilha', name: 'Afonso Padilha', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-abner-dantas', name: 'Abner Dantas', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-gio-lisboa', name: 'Gio Lisboa', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-emerson-ceara', name: 'Emerson Ceará', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', mod: 'humor', subName: 'Stand-up', catName: 'Humoristas' },
-      { id: 't-leandro-karnal', name: 'Leandro Karnal', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
-      { id: 't-cortella', name: 'Mario Sergio Cortella', mod: 'palestras', subName: 'Liderança', catName: 'Palestrantes' },
-      { id: 't-claudio-duarte', name: 'Pastor Cláudio Duarte', mod: 'palestras', subName: 'Desenvolvimento pessoal', catName: 'Palestrantes' },
-      { id: 't-palavra-cantada', name: 'Palavra Cantada', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
-      { id: 't-mundo-bita', name: 'Mundo Bita', mod: 'infantil', subName: 'Espetáculos', catName: 'Infantil e família' },
-      { id: 't-cirque-soleil', name: 'Cirque du Soleil', mod: 'teatro', subName: 'Circo', catName: 'Peças de teatro e musicais' },
-      { id: 't-claudia-raia', name: 'Claudia Raia', mod: 'teatro', subName: 'Musical', catName: 'Peças de teatro e musicais' },
-      { id: 't-camila-coutinho', name: 'Camila Coutinho', mod: 'feiras', subName: 'Negócios', catName: 'Influenciadores' },
-      { id: 't-casimiro', name: 'Casimiro Miguel', mod: 'feiras', subName: 'Tecnologia', catName: 'Influenciadores' },
-      { id: 't-kobra', name: 'Eduardo Kobra', mod: 'experiencias', subName: 'Exposições interativas', catName: 'Artistas' },
-      { id: 't-vik-muniz', name: 'Vik Muniz', mod: 'experiencias', subName: 'Exposições interativas', catName: 'Artistas' },
-      { id: 't-henrique-fogaca', name: 'Henrique Fogaça', mod: 'gastronomia', subName: 'Experiências gastronômicas', catName: 'Gastronomia' },
-      { id: 't-helena-rizzo', name: 'Helena Rizzo', mod: 'gastronomia', subName: 'Experiências gastronômicas', catName: 'Gastronomia' },
-    ];
+    const pilotTalents = REAL_BRAZILIAN_TALENTS_100;
 
     db.exec('BEGIN IMMEDIATE');
     try {
       for (const t of pilotTalents) {
         db.prepare('INSERT OR IGNORE INTO talents(id, name, entity_type) VALUES (?, ?, ?)').run(t.id, t.name, 'person');
         db.prepare('INSERT OR IGNORE INTO talent_modalities(talent_id, modality_id) VALUES (?, ?)').run(t.id, t.mod);
+        for (const em of t.extraMods ?? []) {
+          db.prepare('INSERT OR IGNORE INTO talent_modalities(talent_id, modality_id) VALUES (?, ?)').run(t.id, em);
+        }
         const subRow = db.prepare('SELECT id FROM submodalities WHERE modality_id = ? AND name = ?').get(t.mod, t.subName);
         if (subRow) {
           db.prepare('INSERT OR IGNORE INTO talent_submodalities(talent_id, modality_id, submodality_id) VALUES (?, ?, ?)').run(t.id, t.mod, subRow.id);
@@ -276,33 +255,7 @@ export function seedPilotDatabaseIfEmpty(db) {
       ['1501402', 58000],  // Belém - PA (Norte)
     ];
 
-    const talentMultipliers = [
-      ['t-alok', 1.55, 0.78],
-      ['t-jorge-mateus', 1.42, 0.80],
-      ['t-luan-santana', 1.35, 0.81],
-      ['t-thiaguinho', 1.22, 0.76],
-      ['t-natiruts', 1.05, 0.82],
-      ['t-afonso-padilha', 0.96, 0.72],
-      ['t-rodrigo-marques', 0.65, 0.71],
-      ['t-jonathan-nemer', 0.68, 0.74],
-      ['t-gio-lisboa', 0.48, 0.62],
-      ['t-emerson-ceara', 0.52, 0.75],
-      ['t-palavra-cantada', 0.78, 0.73],
-      ['t-mundo-bita', 0.84, 0.70],
-      ['t-leandro-karnal', 0.68, 0.68],
-      ['t-cortella', 0.74, 0.72],
-      ['t-claudio-duarte', 1.38, 0.69],
-      ['t-walmir-alencar', 0.32, 0.56],
-      ['t-abner-dantas', 0.22, 0.46],
-      ['t-cirque-soleil', 0.92, 0.66],
-      ['t-claudia-raia', 0.64, 0.74],
-      ['t-camila-coutinho', 0.88, 0.64],
-      ['t-casimiro', 1.28, 0.69],
-      ['t-kobra', 0.58, 0.67],
-      ['t-vik-muniz', 0.52, 0.72],
-      ['t-henrique-fogaca', 0.76, 0.65],
-      ['t-helena-rizzo', 0.44, 0.63],
-    ];
+    const talentMultipliers = REAL_BRAZILIAN_TALENTS_100.map(t => [t.id, t.mult, t.prevRatio]);
 
     const mediaConfigs = [
       { network: 'YouTube', metric: 'views', source: 'YouTube Analytics', quality: 'verified', factor: 1.0 },
@@ -401,33 +354,14 @@ export function seedPilotDatabaseIfEmpty(db) {
     const d60 = shiftDay(-60);
     const d90 = shiftDay(-90);
 
-    const commercialArtists = [
-      { id: 't-abner-dantas', name: 'Abner Dantas', modalities: ['humor'], base: 3500, now: 7800, slug: 'abnerdantas' },
-      { id: 't-walmir-alencar', name: 'Walmir Alencar', modalities: ['shows'], base: 8000, now: 14500, slug: 'walmiralencar' },
-      { id: 't-gio-lisboa', name: 'Gio Lisboa', modalities: ['humor'], base: 32000, now: 51000, slug: 'giolisboa' },
-      { id: 't-emerson-ceara', name: 'Emerson Ceará', modalities: ['humor'], base: 42000, now: 53000, slug: 'emersonceara' },
-      { id: 't-rodrigo-marques', name: 'Rodrigo Marques', modalities: ['humor'], base: 64000, now: 88000, slug: 'rodrigomarques' },
-      { id: 't-jonathan-nemer', name: 'Jonathan Nemer', modalities: ['humor'], base: 72000, now: 94000, slug: 'jonathannemer' },
-      { id: 't-afonso-padilha', name: 'Afonso Padilha', modalities: ['humor'], base: 210000, now: 285000, slug: 'afonsopadilha' },
-      { id: 't-thiaguinho', name: 'Thiaguinho', modalities: ['shows'], base: 450000, now: 560000, slug: 'thiaguinho' },
-      { id: 't-natiruts', name: 'Natiruts', modalities: ['shows'], base: 380000, now: 445000, slug: 'natiruts' },
-      { id: 't-luan-santana', name: 'Luan Santana', modalities: ['shows'], base: 820000, now: 950000, slug: 'luansantana' },
-      { id: 't-jorge-mateus', name: 'Jorge & Mateus', modalities: ['shows'], base: 910000, now: 1040000, slug: 'jorgeemateus' },
-      { id: 't-alok', name: 'Alok', modalities: ['shows'], base: 1200000, now: 1380000, slug: 'alok' },
-      { id: 't-leandro-karnal', name: 'Leandro Karnal', modalities: ['palestras'], base: 5400, now: 9200, slug: 'leandrokarnal' },
-      { id: 't-cortella', name: 'Mario Sergio Cortella', modalities: ['palestras'], base: 185000, now: 242000, slug: 'cortella' },
-      { id: 't-claudio-duarte', name: 'Pastor Cláudio Duarte', modalities: ['palestras', 'humor'], base: 680000, now: 940000, slug: 'claudioduarte' },
-      { id: 't-palavra-cantada', name: 'Palavra Cantada', modalities: ['infantil'], base: 28000, now: 41500, slug: 'palavracantada' },
-      { id: 't-mundo-bita', name: 'Mundo Bita', modalities: ['infantil'], base: 140000, now: 196000, slug: 'mundobita' },
-      { id: 't-cirque-soleil', name: 'Cirque du Soleil', modalities: ['teatro'], base: 95000, now: 148000, slug: 'cirquedusoleil' },
-      { id: 't-claudia-raia', name: 'Claudia Raia', modalities: ['teatro'], base: 112000, now: 154000, slug: 'claudiaraia' },
-      { id: 't-camila-coutinho', name: 'Camila Coutinho', modalities: ['feiras'], base: 68000, now: 108000, slug: 'camilacoutinho' },
-      { id: 't-casimiro', name: 'Casimiro Miguel', modalities: ['feiras'], base: 540000, now: 790000, slug: 'casimiro' },
-      { id: 't-kobra', name: 'Eduardo Kobra', modalities: ['experiencias'], base: 34000, now: 56000, slug: 'kobrastreetart' },
-      { id: 't-vik-muniz', name: 'Vik Muniz', modalities: ['experiencias'], base: 29000, now: 42000, slug: 'vikmuniz' },
-      { id: 't-henrique-fogaca', name: 'Henrique Fogaça', modalities: ['gastronomia'], base: 86000, now: 132000, slug: 'henriquefogaca' },
-      { id: 't-helena-rizzo', name: 'Helena Rizzo', modalities: ['gastronomia'], base: 7400, now: 12900, slug: 'helenarizzo' },
-    ];
+    const commercialArtists = REAL_BRAZILIAN_TALENTS_100.map(t => ({
+      id: t.id,
+      name: t.name,
+      modalities: [t.mod, ...(t.extraMods ?? [])],
+      base: t.base,
+      now: t.now,
+      slug: t.slug
+    }));
 
     const curveShapes = {
       YouTube:   [0.74, 0.81, 0.88, 1.00, 1.12, 1.19, 1.38, 1.52],

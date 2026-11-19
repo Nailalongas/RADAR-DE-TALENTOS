@@ -20,13 +20,28 @@ function mirrorToCommercial(db,account,item,source,authorizationRef){
  db.prepare('INSERT INTO commercial_snapshots(account_id,metric,observed_on,value,source,authorization_ref) VALUES(?,?,?,?,?,?) ON CONFLICT(account_id,metric,observed_on) DO UPDATE SET value=excluded.value,source=excluded.source,authorization_ref=excluded.authorization_ref').run(account.id,item.metric,item.observed_on,item.value,source,ref);
 }
 
+export function upsertMetricCurrent(db,{account_id,talent_id,network,metric,value=null,observed_on=null,collected_at=new Date().toISOString(),source='Fonte pendente',status='available',status_detail=''}){
+ db.prepare(`INSERT INTO metric_current(account_id,talent_id,network,metric,value,observed_on,collected_at,source,status,status_detail)
+  VALUES(?,?,?,?,?,?,?,?,?,?)
+  ON CONFLICT(account_id,metric) DO UPDATE SET
+   value=CASE WHEN excluded.value IS NOT NULL AND (metric_current.observed_on IS NULL OR excluded.observed_on>=metric_current.observed_on) THEN excluded.value ELSE metric_current.value END,
+   observed_on=CASE WHEN excluded.observed_on IS NOT NULL AND (metric_current.observed_on IS NULL OR excluded.observed_on>=metric_current.observed_on) THEN excluded.observed_on ELSE metric_current.observed_on END,
+   collected_at=excluded.collected_at,
+   source=excluded.source,
+   status=excluded.status,
+   status_detail=excluded.status_detail`).run(account_id,talent_id,network,metric,value,observed_on,collected_at,source,status,status_detail);
+}
+
 export function recordAccountCollectionStatus(db,accountId,status,errorMessage=null,timestamp=new Date().toISOString()){
  if(!accountId)return;
- const acc=db.prepare('SELECT id FROM social_accounts WHERE id=?').get(accountId);
+ const acc=db.prepare('SELECT id,talent_id,network FROM social_accounts WHERE id=?').get(accountId);
  if(!acc)return;
  const state=status==='succeeded'?'collected':status==='failed'?'error':status==='paused'?'paused':'queued';
  db.prepare('UPDATE social_accounts SET collection_state=? WHERE id=?').run(state,accountId);
  db.prepare('INSERT INTO collection_runs(id,account_id,status,started_at,finished_at,error_message,created_at) VALUES(?,?,?,?,?,?,?)').run(randomUUID(),accountId,status,timestamp,timestamp,errorMessage,timestamp);
+ if(status==='failed'){
+  db.prepare("UPDATE metric_current SET status='error',status_detail=?,collected_at=? WHERE account_id=?").run(errorMessage||'Falha de coleta',timestamp,accountId);
+ }
 }
 
 function insertSnapshots(db,rows,{accountId=null,network=null,day=null,allowIntradayUpdate=false,maxChangeRatio=10,syncCommercial=false,authorizationRef=null}={}){
@@ -65,11 +80,13 @@ function insertSnapshots(db,rows,{accountId=null,network=null,day=null,allowIntr
    if(Date.parse(collected)<Date.parse(old.collected_at))throw Error('Coleta anterior à fotografia já registrada no dia');
    if(old.value===item.value&&old.collected_at===collected)continue;
    db.prepare('UPDATE metric_snapshots SET value=?,collected_at=? WHERE account_id=? AND metric=? AND observed_on=?').run(item.value,collected,id,metric,item.observed_on);
+   upsertMetricCurrent(db,{account_id:id,talent_id:a.talent_id,network:a.network,metric,value:item.value,observed_on:item.observed_on,collected_at:collected,source,status:'available',status_detail:'Atualizado'});
    if(syncCommercial)mirrorToCommercial(db,a,item,source,authorizationRef);
    inserted++;
    continue;
   }
   db.prepare('INSERT INTO metric_snapshots(account_id,network,metric,observed_on,value,source,collected_at) VALUES(?,?,?,?,?,?,?)').run(id,a.network,metric,item.observed_on,item.value,source,collected);
+  upsertMetricCurrent(db,{account_id:id,talent_id:a.talent_id,network:a.network,metric,value:item.value,observed_on:item.observed_on,collected_at:collected,source,status:'available',status_detail:'Atualizado'});
   if(syncCommercial)mirrorToCommercial(db,a,item,source,authorizationRef);
   inserted++;
  }

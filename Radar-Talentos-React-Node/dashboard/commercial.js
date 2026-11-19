@@ -353,7 +353,12 @@ async function loadArtistCards(a,id){
           }
         }
         el('small',v.freshness_label?`${v.baseline_on??'Sem base'} → ${v.freshness_label}`:`${v.baseline_on??'Sem base'} → ${v.observed_on} · ${v.source}`,x);
-      }else el('p','Sem observação nacional no período.',x);
+      }else{
+        const fallbackBadge=n.network==='TikTok'?'Autorização pendente':n.network==='Spotify'?'Fonte pendente':'Coleta pendente';
+        const badgeP=el('p',`${labels[n.metric]} · ${fallbackBadge}`,x);
+        badgeP.className='negative';
+        el('small',n.currentStatus?.status_detail||'Dados indisponíveis',x);
+      }
       if(geo?.report){
         const c=geo.cities[0],r=geo.report;
         el('small','Cidade principal · '+regionalLabels[r.metric],x);

@@ -1,3 +1,4 @@
+import {discoveryStatus,discoverTalentsFromSources} from './discovery.mjs';
 import {commercialCompatibility} from './commercial-compatibility.mjs';
 import {commercialInsights} from './commercial-insights.mjs';
 import {commercialQuery} from './commercial.mjs';
@@ -69,6 +70,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         if (!database) { res.writeHead(503).end(); return; }
         res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(audienceStatus(database))); return;
       }
+      if(path==='/api/discovery/status'){if(!database){res.writeHead(503).end();return;}const result=discoveryStatus(database);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial/compatibility'){if(!database){res.writeHead(503).end();return;}const result=commercialCompatibility(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial/insights'){if(!database){res.writeHead(503).end();return;}const result=commercialInsights(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial'){if(!database){res.writeHead(503).end();return;}const result=commercialQuery(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
