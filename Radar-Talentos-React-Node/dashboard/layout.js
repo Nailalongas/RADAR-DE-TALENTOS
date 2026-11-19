@@ -216,13 +216,14 @@
  function parseArtistCity(raw){
   const m=String(raw||'').trim().match(/^(.+?)\s+(?:em|x|×)\s+(.+)$/i);
   if(m)return {artist:m[1].trim(),city:m[2].trim()};
-  return {artist:String(raw||'').trim(),city:document.getElementById('compat-city')?.value?.trim()||'Criciúma / SC'};
+  return {artist:String(raw||'').trim(),city:document.getElementById('compat-city')?.value?.trim()||''};
  }
  function goCompatibility(artist,city){
   if(typeof window.runRadarCompatibility==='function'){
    window.runRadarCompatibility(artist,city,80);
   }else{
-   const p=new URLSearchParams({q:artist,cityQuery:city,radius:'80'});
+   const p=new URLSearchParams({q:artist,radius:'80'});
+   if(city)p.set('cityQuery',city);
    location.href='/commercial.html?'+p.toString()+'#compatibility-simulator';
   }
  }
@@ -231,7 +232,7 @@
   const {artist,city}=parseArtistCity(input.value);
   if(artist){
    priority.push({
-    label:`⚡ Simular Compatibilidade Comercial: ${artist} em ${city}`,
+    label:city?`⚡ Simular Compatibilidade Comercial: ${artist} em ${city}`:`⚡ Selecionar no Simulador de Compatibilidade: ${artist}`,
     kind:'Viabilidade para Vendas · 4 Mídias + 7 Variáveis',
     run:()=>goCompatibility(artist,city)
    });
@@ -243,7 +244,7 @@
   }
  }
  for(const a of document.querySelectorAll('.sidebar nav a'))entries.push({label:a.textContent.trim(),kind:'Navegação',run:()=>{location.href=a.href}});
- for(const opt of document.querySelectorAll('#compat-artists-list option')){if(opt.value)entries.push({label:`${opt.value} — Simular em Criciúma / SC`,kind:'Compatibilidade Artista × Cidade',run:()=>goCompatibility(opt.value,'Criciúma / SC')});}
+ for(const opt of document.querySelectorAll('#compat-artists-list option')){if(opt.value)entries.push({label:`${opt.value} — Simulador de Compatibilidade`,kind:'Compatibilidade Artista × Cidade',run:()=>goCompatibility(opt.value,document.getElementById('compat-city')?.value?.trim()||'')});}
  for(const [name,kind] of [['category','Categoria'],['talent','Artista'],['modality','Modalidade'],['submodality','Submodalidade'],['network','Mídia'],['region','Região'],['uf','Estado'],['city','Município'],['platform','Plataforma']]){const select=form.elements.namedItem(name);if(!(select instanceof HTMLSelectElement))continue;for(const option of [...select.options].slice(0,250)){if(!option.value)continue;entries.push({label:option.textContent,kind,run:()=>{select.value=option.value;select.dispatchEvent(new Event('change',{bubbles:true}));const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}})}}
  if(q&&form.elements.namedItem('artist'))priority.push({label:'Filtrar artista: '+input.value,kind:'Pesquisa de talento',run:()=>{form.elements.namedItem('artist').value=input.value.trim();const det=form.closest('details');if(det)det.open=true;form.requestSubmit()}});
  const filtered=[...priority,...entries.filter(e=>!q||normalize(e.label+' '+e.kind).includes(q))].slice(0,30);

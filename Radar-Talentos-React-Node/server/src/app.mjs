@@ -1,3 +1,6 @@
+import { acquisitionStatus } from './acquisition.mjs';
+import { handleDiscovery } from './discovery/http.mjs';
+import { openDiscovery, listCandidates } from './discovery/engine.mjs';
 import {discoveryStatus,discoverTalentsFromSources} from './discovery.mjs';
 import {commercialCompatibility} from './commercial-compatibility.mjs';
 import {commercialInsights} from './commercial-insights.mjs';
@@ -27,6 +30,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
     if(requests.size>10000)for(const [k,v] of requests)if(now-v.start>=60000)requests.delete(k);
     let rate=requests.get(ip);if(!rate||now-rate.start>=60000){rate={start:now,count:0};if(requests.size<10000||requests.has(ip))requests.set(ip,rate);else{res.writeHead(429).end();return;}}
     if(++rate.count>300){res.writeHead(429,{"Retry-After":"60"}).end();return;}
+    if ((security || req.url !== '/api/discovery/status') && await handleDiscovery(req,res,{radar:database,security})) return;
     if (!['GET','HEAD'].includes(req.method)&&!(eventsOnly&&req.method==='POST'&&req.url==='/api/operations/sync')) {
       res.writeHead(405, { Allow: 'GET, HEAD' }).end();
       return;
@@ -57,6 +61,11 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         res.writeHead(202,{'Content-Type':'application/json'}).end(JSON.stringify({accepted:true}));
         runOperations(database,config,{...syncOptions,ignoreSchedule:true,inbox:syncOptions.inbox??process.env.RADAR_INBOX??'data/inbox',secretsDir:syncOptions.secretsDir??process.env.RADAR_SECRETS_DIR??'data/secrets'}).then(r=>{lastSync={runs:r};}).catch(()=>{lastSync={error:'Falha operacional; verifique banco e configuração'};}).finally(()=>{syncing=false;});return;
       }
+      if (path === '/api/acquisition/status') {
+        if (!database) {res.writeHead(503).end();return;}
+        const result=await acquisitionStatus(database,syncConfig);
+        res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify({...result,syncing}));return;
+      }
       if (path === '/api/operations/status') {
         if (!database) {res.writeHead(503).end();return;}
         res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify((()=>{const state=operationsStatus(database);if(eventsOnly){const ids=new Set(state.jobs.filter(j=>(['events','alerts'].includes(j.kind)||combinedDashboard&&['audience','metrics'].includes(j.kind))).map(j=>j.id));state.jobs=state.jobs.filter(j=>ids.has(j.id));state.history=state.history.filter(j=>ids.has(j.job_id));state.alerts=state.alerts.filter(a=>a.kind==='trend'||a.kind==='collection'&&ids.has(a.subject));}return {...state,syncing,lastSync};})()));return;
@@ -70,7 +79,7 @@ export function createRadarServer({ database, security = null, eventsOnly = fals
         if (!database) { res.writeHead(503).end(); return; }
         res.writeHead(200, {'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'}).end(req.method==='HEAD'?undefined:JSON.stringify(audienceStatus(database))); return;
       }
-      if(path==='/api/discovery/status'){if(!database){res.writeHead(503).end();return;}const result=discoveryStatus(database);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
+      if(path==='/api/discovery/status'){if(!database){res.writeHead(503).end();return;}const result=discoveryStatus(database);let extra={sources:[],candidates:[],logs:[]};try{const ddb=openDiscovery();try{extra={sources:ddb.prepare('SELECT id,kind,enabled,history_allowed FROM sources').all(),candidates:listCandidates(ddb),logs:ddb.prepare('SELECT * FROM collection_logs ORDER BY at DESC LIMIT 30').all()};}finally{ddb.close();}}catch{}res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify({...result,...extra}));return;}
       if(path==='/api/commercial/compatibility'){if(!database){res.writeHead(503).end();return;}const result=commercialCompatibility(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial/insights'){if(!database){res.writeHead(503).end();return;}const result=commercialInsights(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}
       if(path==='/api/commercial'){if(!database){res.writeHead(503).end();return;}const result=commercialQuery(database,new URL(req.url,'http://localhost').searchParams);res.writeHead(200,{'Content-Type':'application/json; charset=utf-8'}).end(req.method==='HEAD'?undefined:JSON.stringify(result));return;}

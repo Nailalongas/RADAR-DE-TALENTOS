@@ -204,6 +204,16 @@ test('Simulador de Compatibilidade: ausência de dados regionais não fabrica sc
 
     const badRes = await fetch(base + '/api/commercial/compatibility?q=Artista+Inexistente&cityQuery=Criciuma');
     assert.equal(badRes.status, 400);
+
+    // Sem cidade selecionada deve rejeitar (não assume Criciúma automaticamente)
+    const noCityRes = await fetch(base + '/api/commercial/compatibility?q=Pastor+Claudio+Duarte&cityQuery=');
+    assert.equal(noCityRes.status, 400);
+
+    // Autocomplete de municípios aceita nome parcial, sem acento e formato "Cidade / UF"
+    const muniRes = await fetch(base + '/api/radar/municipalities?q=Florianopolis+%2F+SC');
+    assert.equal(muniRes.status, 200);
+    const muniBody = await muniRes.json();
+    assert.equal(muniBody.items[0].code, '4205407');
   } finally {
     await new Promise(r => server.close(r));
     db.close();

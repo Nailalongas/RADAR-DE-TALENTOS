@@ -29,6 +29,8 @@
       <a href="#compatibility-simulator">⚡ &nbsp; Compatibilidade Artista × Cidade</a>
       <a href="#city-insights">⌖ &nbsp; Cidades por mídia</a>
       <a href="/events.html#operations">⟳ &nbsp; Sincronização</a>
+      <span class="nav-label">ADMINISTRAÇÃO</span>
+      <a href="/acquisition.html">⚙ &nbsp; Motor de Dados</a>
     </nav>
   </header>
 
@@ -52,10 +54,11 @@
         <div class="filters">
           <label>Mídia
             <select name="network">
-              <option>YouTube</option>
-              <option>Instagram</option>
-              <option>Spotify</option>
-              <option>TikTok</option>
+              <option value="all" selected>Todas as mídias</option>
+              <option value="Instagram">Instagram</option>
+              <option value="YouTube">YouTube</option>
+              <option value="Spotify">Spotify</option>
+              <option value="TikTok">TikTok</option>
             </select>
           </label>
           <label>Indicador
@@ -96,7 +99,7 @@
             </select>
           </label>
           <label>Artista
-            <input name="q" type="search" placeholder="Nome do artista">
+            <input name="q" type="search" value="">
           </label>
         </div>
         <button type="submit">Consultar</button>
@@ -146,11 +149,11 @@
       </div>
       <form id="compatibility-form" class="compat-form">
         <label>Artista / Talento
-          <input name="q" id="compat-artist" list="compat-artists-list" placeholder="Ex.: Pastor Cláudio Duarte" autocomplete="off">
+          <input name="q" id="compat-artist" list="compat-artists-list" value="" autocomplete="off">
           <datalist id="compat-artists-list"></datalist>
         </label>
         <label>Cidade / Praça (Nome ou Cidade/UF)
-          <input name="cityQuery" id="compat-city" list="compat-cities-list" placeholder="Ex.: Criciúma / SC" value="Criciúma / SC" autocomplete="off">
+          <input name="cityQuery" id="compat-city" list="compat-cities-list" value="" autocomplete="off">
           <datalist id="compat-cities-list"></datalist>
         </label>
         <label>Bacia Regional (Raio)
@@ -215,8 +218,8 @@
       <h2 id="search-title">Buscar Artista e Simular Cidade</h2>
       <button aria-label="Fechar pesquisa" class="secondary-button" id="close-search" type="button">Esc</button>
     </div>
-    <label for="global-search">Digite um artista ou "Artista em Cidade" (ex.: Pastor Cláudio Duarte em Criciúma SC)</label>
-    <input autocomplete="off" id="global-search" placeholder="Ex.: Pastor Cláudio Duarte em Criciúma SC" type="search">
+    <label for="global-search">Digite um artista ou "Artista em Cidade / UF"</label>
+    <input autocomplete="off" id="global-search" value="" type="search">
     <div class="palette-results" id="search-results"></div>
   </dialog>
 </body>

@@ -14,8 +14,27 @@ export function radarQuery(db,path,p) {
   if(path==='/api/radar/modalities') return db.prepare('SELECT * FROM modalities ORDER BY name').all().map(m=>({...m,submodalities:db.prepare('SELECT id,name FROM submodalities WHERE modality_id=? ORDER BY name').all(m.id)}));
   if(path==='/api/radar/municipalities') {
     const norm=s=>s.normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase();
-    const q=norm(get('q').trim()), uf=get('uf'), region=get('region');
-    const items=db.prepare(`SELECT code,name,uf,region,lat,lon FROM municipalities WHERE (?='' OR uf=?) AND (?='' OR region=?) ORDER BY name,uf`).all(uf,uf,region,region).filter(m=>!q||norm(m.name).includes(q)||m.code===q);
+    const rawQ=norm(get('q').trim()), uf=get('uf'), region=get('region');
+    const qClean=rawQ.replace(/[\/,-]+/g,' ').replace(/\s+/g,' ').trim();
+    const qParts=qClean?qClean.split(' '):[];
+    const maybeUf=qParts.length>1&&/^[a-z]{2}$/.test(qParts.at(-1))?qParts.at(-1):'';
+    const nameQuery=maybeUf?qParts.slice(0,-1).join(' '):qClean;
+    const items=db.prepare(`SELECT code,name,uf,region,lat,lon FROM municipalities WHERE (?='' OR uf=?) AND (?='' OR region=?) ORDER BY name,uf`).all(uf,uf,region,region).filter(m=>{
+      if(!rawQ)return true;
+      const mn=norm(m.name), muf=norm(m.uf);
+      if(m.code===rawQ||mn.includes(rawQ)||mn.includes(qClean))return true;
+      if(maybeUf&&muf===maybeUf&&mn.includes(nameQuery))return true;
+      return `${mn} / ${muf}`.includes(rawQ)||`${mn} ${muf}`.includes(qClean);
+    });
+    if(rawQ){
+      const target=nameQuery||qClean;
+      items.sort((a,b)=>{
+        const an=norm(a.name), bn=norm(b.name);
+        const aExact=an===target?0:an.startsWith(target)?1:2;
+        const bExact=bn===target?0:bn.startsWith(target)?1:2;
+        return aExact-bExact||a.name.localeCompare(b.name)||a.uf.localeCompare(b.uf);
+      });
+    }
     return {total:items.length,items};
   }
   if(path!=='/api/radar/ranking') return undefined;

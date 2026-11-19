@@ -1,7 +1,8 @@
 'use strict';
 const form=document.querySelector('#commercial-filters'),msg=document.querySelector('#message'),rows=document.querySelector('#commercial-rows'),profile=document.querySelector('#commercial-profile'),chart=document.querySelector('#commercial-chart'),other=document.querySelector('#commercial-other'),strategic=document.querySelector('#strategic-strip');
-const metrics={YouTube:['subscribers','views','likes','comments'],Instagram:['followers','views','likes','comments'],Spotify:['monthly_listeners','followers','streams'],TikTok:['followers','views','likes','comments']};
-const labels={subscribers:'Inscritos',views:'Visualizações',likes:'Curtidas',comments:'Comentários',followers:'Seguidores',monthly_listeners:'Ouvintes mensais',streams:'Reproduções'};
+const platformMetrics={Instagram:['followers','views','likes','comments'],YouTube:['subscribers','views','likes','comments'],Spotify:['monthly_listeners','followers','streams'],TikTok:['followers','views','likes','comments']};
+const metrics={all:['consolidated_growth'],...platformMetrics};
+const labels={consolidated_growth:'Crescimento consolidado',subscribers:'Inscritos',views:'Visualizações',likes:'Curtidas',comments:'Comentários',followers:'Seguidores',monthly_listeners:'Ouvintes mensais',streams:'Reproduções'};
 const sizes={small:'Pequeno porte',medium:'Médio porte',large:'Grande porte',unknown:'Indisponível'};
 const neonPalette={
   Instagram:{color:'#ff2bd6',glow:'rgba(255,43,214,0.55)',fillTop:'rgba(255,43,214,0.28)'},
@@ -11,22 +12,39 @@ const neonPalette={
 };
 const number=v=>v==null?'—':v.toLocaleString('pt-BR',{maximumFractionDigits:1});
 const signed=v=>v==null?'—':(v>0?'+':'')+number(v);
+const fmtPct=v=>v==null?'—':`${signed(v)}%`;
 let token=0,detailToken=0,activeParams=null,selectedArtist=null,cityToken=0,lastResponse=null;
 
 function el(tag,text,parent){const x=document.createElement(tag);if(text!=null)x.textContent=text;if(parent)parent.append(x);return x;}
-function updateMetrics(){form.elements.metric.replaceChildren();for(const m of metrics[form.elements.network.value]){const o=el('option',labels[m],form.elements.metric);o.value=m;}}
+function updateMetrics(){
+  form.elements.metric.replaceChildren();
+  const netVal=form.elements.network.value||'all';
+  for(const m of (metrics[netVal]||metrics.all)){
+    const o=el('option',labels[m]||m,form.elements.metric);
+    o.value=m;
+  }
+}
 async function get(params){const r=await fetch('/api/commercial?'+params,{cache:'no-store'});if(!r.ok)throw Error('API indisponível');return r.json();}
 
 function kpis(d,extra={}){
   const root=document.querySelector('#commercial-kpis');root.replaceChildren();
   const rev=d.items.filter(x=>x.size==='small'&&x.growth_pct!=null).sort((a,b)=>b.growth_pct-a.growth_pct)[0]??d.items.find(x=>x.growth_pct!=null);
   const lastObs=extra.lastCollected??d.items.map(x=>x.observed_on).filter(Boolean).sort().at(-1)??d.end;
-  const topNetLabel=extra.topNetwork?`${extra.topNetwork.network} (${signed(extra.topNetwork.growth_pct)}%)`:d.network;
+  const isAll=d.network==='all';
+  const leadItem=d.items[0];
+  const topNetLabel=extra.topNetwork
+    ?`${extra.topNetwork.network} (${signed(extra.topNetwork.growth_pct)}%)`
+    :(isAll&&leadItem?.top_network
+      ?`${leadItem.top_network}${leadItem.top_network_growth_pct!=null?` (${signed(leadItem.top_network_growth_pct)}%)`:''}`
+      :(d.network_label||d.network));
+  const topNetSub=extra.risingCity
+    ?`Praça: ${extra.risingCity.name}/${extra.risingCity.uf}`
+    :(isAll?'Instagram · YouTube · Spotify · TikTok':'No recorte selecionado');
   const cards=[
     ['Artistas monitorados',number(d.total),`${d.growing} em crescimento`],
     ['Histórico comparável',number(d.comparable),`${d.total-d.comparable} sem base anterior`],
     ['Artista revelação',rev?rev.name:'—',rev?`${sizes[rev.size]} · ${signed(rev.growth_pct)}%`:'Porte pequeno'],
-    ['Mídia em destaque',topNetLabel,extra.risingCity?`Praça: ${extra.risingCity.name}/${extra.risingCity.uf}`:'No recorte selecionado'],
+    ['Mídia em destaque',topNetLabel,topNetSub],
     ['Cidade em ascensão',extra.risingCity?`${extra.risingCity.name}/${extra.risingCity.uf}`:'Selecionar artista',extra.risingCity?`${extra.risingCity.network} · ${signed(extra.risingCity.growth_pct)}%`:'Comparativo municipal'],
     ['Última coleta',lastObs,'Observação verificada']
   ];
@@ -53,17 +71,39 @@ function smoothPath(pts){
 function draw(history,nationalList=null){
   chart.replaceChildren();
   const seriesList=[];
+  const activeNet=activeParams?.get('network')||form.elements.network.value||'all';
+  const activeMetric=activeParams?.get('metric')||form.elements.metric.value||'consolidated_growth';
+  const winDays=Number(activeParams?.get('days')||form.elements.days.value||30);
+
   if(Array.isArray(nationalList)&&nationalList.length){
     for(const n of nationalList){
-      const h=n.windows?.[90]?.history?.length>=2?n.windows[90].history:n.item?.history;
+      const winItem=n.windows?.[winDays]??n.item;
+      const h=winItem?.history?.length>=2
+        ?winItem.history
+        :(n.item?.history?.length>=2?n.item.history:n.windows?.[90]?.history);
       if(h&&h.length>=2){
-        seriesList.push({network:n.network,metric:n.metric,history:h,item:n.item});
+        seriesList.push({network:n.network,metric:n.metric,history:h,item:winItem??n.item});
+      }
+    }
+  }else if(selectedArtist?.networks){
+    for(const net of Object.keys(platformMetrics)){
+      const netObj=selectedArtist.networks[net];
+      if(netObj?.history?.length>=2){
+        seriesList.push({network:net,metric:netObj.metric,history:netObj.history,item:netObj});
       }
     }
   }
+
+  if(activeNet!=='all'&&history&&history.length>=2){
+    const idx=seriesList.findIndex(s=>s.network===activeNet);
+    const entry={network:activeNet,metric:activeMetric,history,item:selectedArtist};
+    if(idx>=0)seriesList[idx]=entry;
+    else seriesList.push(entry);
+  }
+
   if(!seriesList.length&&history&&history.length>=2){
-    const netName=activeParams?.get('network')||form.elements.network.value||'YouTube';
-    seriesList.push({network:netName,metric:activeParams?.get('metric')||'subscribers',history,item:selectedArtist});
+    const netName=activeNet==='all'?(selectedArtist?.top_network||'YouTube'):activeNet;
+    seriesList.push({network:netName,metric:activeMetric,history,item:selectedArtist});
   }
   if(!seriesList.length){
     el('p','Histórico insuficiente para gráfico.',chart);
@@ -71,7 +111,7 @@ function draw(history,nationalList=null){
   }
 
   const head=el('div',null,chart);head.className='neon-chart-head';
-  el('span',seriesList.length>1?'Curva de Aceleração nas 4 Mídias (% acumulado no período)':'Evolução histórica do indicador',head).className='neon-chart-title';
+  el('span',seriesList.length>1?`Curva de Aceleração nas 4 Mídias (% acumulado em ${winDays}d)`:'Evolução histórica do indicador',head).className='neon-chart-title';
   const legend=el('div',null,head);legend.className='neon-legend';
   for(const s of seriesList){
     const pal=neonPalette[s.network]||neonPalette.YouTube;
@@ -151,10 +191,10 @@ function draw(history,nationalList=null){
     svg.append(dTxt);
   }
 
-  const activeNet=activeParams?.get('network')||form.elements.network.value;
   for(const s of mappedSeries){
     const pal=neonPalette[s.network]||neonPalette.YouTube;
-    const isPrimary=!multi||s.network===activeNet;
+    const isPrimary=!multi||activeNet==='all'||s.network===activeNet;
+    const isTopLead=activeNet==='all'&&selectedArtist?.top_network===s.network;
     const coords=s.pts.map(p=>[
       padL+W*(Date.parse(p.date)-lo)/Math.max(1,hi-lo),
       padT+H*(1-(p.plotVal-minVal)/Math.max(0.001,maxVal-minVal)),
@@ -165,14 +205,14 @@ function draw(history,nationalList=null){
     const area=document.createElementNS(ns,'path');
     area.setAttribute('d',areaD);
     area.setAttribute('fill',`url(#grad-${s.network})`);
-    area.setAttribute('opacity',isPrimary?'0.95':'0.45');
+    area.setAttribute('opacity',isTopLead?'0.95':isPrimary?'0.72':'0.45');
     svg.append(area);
 
     const path=document.createElementNS(ns,'path');
     path.setAttribute('d',curveD);
     path.setAttribute('fill','none');
     path.setAttribute('stroke',pal.color);
-    path.setAttribute('stroke-width',isPrimary?'2.8':'2.1');
+    path.setAttribute('stroke-width',isTopLead?'2.9':isPrimary?'2.5':'2.0');
     path.setAttribute('stroke-linecap','round');
     path.setAttribute('filter','url(#neon-glow)');
     svg.append(path);
@@ -180,13 +220,13 @@ function draw(history,nationalList=null){
     for(const [cx,cy,pt] of coords){
       const halo=document.createElementNS(ns,'circle');
       halo.setAttribute('cx',cx.toFixed(1));halo.setAttribute('cy',cy.toFixed(1));
-      halo.setAttribute('r',isPrimary?'4.5':'3.5');
+      halo.setAttribute('r',isPrimary?'4.3':'3.5');
       halo.setAttribute('fill',pal.color);halo.setAttribute('fill-opacity','0.28');
       svg.append(halo);
 
       const dot=document.createElementNS(ns,'circle');
       dot.setAttribute('cx',cx.toFixed(1));dot.setAttribute('cy',cy.toFixed(1));
-      dot.setAttribute('r',isPrimary?'2.7':'2.1');
+      dot.setAttribute('r',isPrimary?'2.6':'2.1');
       dot.setAttribute('fill','#ffffff');dot.setAttribute('stroke',pal.color);dot.setAttribute('stroke-width','1.4');
       const title=document.createElementNS(ns,'title');
       title.textContent=`${s.network} (${labels[s.metric]??s.metric}) · ${pt.date}: ${number(pt.raw)}`+(multi?` (${signed(pt.plotVal)}%)`:'');
@@ -213,13 +253,24 @@ function draw(history,nationalList=null){
 function renderStrategicStrip(d,a){
   if(!strategic)return;
   strategic.replaceChildren();
-  const activeNet=d.national.find(x=>x.network===activeParams.get('network'))??d.national.find(x=>x.item);
-  const w7=activeNet?.windows?.[7],w30=activeNet?.windows?.[30],w90=activeNet?.windows?.[90];
-  const fmtWin=w=>w&&w.growth_pct!=null?`${signed(w.growth_pct)}% (${signed(w.growth)})`:w?number(w.value):'—';
+  const isAll=(activeParams?.get('network')||'all')==='all';
+  let w7Text='—',w30Text='—',w90Text='—';
+  if(isAll&&d.consolidatedWindows){
+    const fmtC=w=>w&&w.growth_pct!=null?`${signed(w.growth_pct)}% (${w.top_network} ${signed(w.top_growth_pct)}%)`:'—';
+    w7Text=fmtC(d.consolidatedWindows[7]);
+    w30Text=fmtC(d.consolidatedWindows[30]);
+    w90Text=fmtC(d.consolidatedWindows[90]);
+  }else{
+    const activeNet=d.national.find(x=>x.network===activeParams?.get('network'))??d.national.find(x=>x.item);
+    const fmtWin=w=>w&&w.growth_pct!=null?`${signed(w.growth_pct)}% (${signed(w.growth)})`:w?number(w.value):'—';
+    w7Text=fmtWin(activeNet?.windows?.[7]);
+    w30Text=fmtWin(activeNet?.windows?.[30]);
+    w90Text=fmtWin(activeNet?.windows?.[90]);
+  }
   const pills=[
-    ['Crescimento 7 dias',fmtWin(w7)],
-    ['Crescimento 30 dias',fmtWin(w30)],
-    ['Crescimento 90 dias',fmtWin(w90)],
+    ['Crescimento 7 dias',w7Text],
+    ['Crescimento 30 dias',w30Text],
+    ['Crescimento 90 dias',w90Text],
     ['Mídia em destaque',d.topNetwork?`${d.topNetwork.network} (${signed(d.topNetwork.growth_pct)}%)`:'—'],
     ['Cidade em ascensão',d.risingCity?`${d.risingCity.name}/${d.risingCity.uf} (${signed(d.risingCity.growth_pct)}%)`:'—'],
     ['Última coleta',d.lastCollected??a.observed_on??'—']
@@ -230,10 +281,16 @@ function renderStrategicStrip(d,a){
   }
 }
 
-async function selectArtist(a){
+async function selectArtist(a,userInitiated=false){
   const id=++detailToken;selectedArtist=a;
   const compatArtistInput=document.querySelector('#compat-artist');
-  if(compatArtistInput){compatArtistInput.value=a.name;runCompatibilitySimulator(a.id);}
+  const compatCityInput=document.querySelector('#compat-city');
+  if(compatArtistInput&&userInitiated)compatArtistInput.value=a.name;
+  if(compatArtistInput?.value?.trim()&&compatCityInput?.value?.trim()){
+    runCompatibilitySimulator(a.id);
+  }else if(compatStatus&&!compatResult?.children?.length){
+    compatStatus.textContent='Selecione um artista e digite qualquer município brasileiro no campo Cidade / Praça para simular a viabilidade.';
+  }
   document.querySelector('#city-scope option[value="artist"]').disabled=false;
   for(const tr of rows.children)tr.setAttribute('aria-selected',String(tr.dataset.artist===a.id));
   loadArtistCards(a,id);
@@ -241,19 +298,30 @@ async function selectArtist(a){
   profile.replaceChildren();other.replaceChildren();
   const box=el('div',null,profile);box.className='profile-header-box';
   const left=el('div',null,box),right=el('div',null,box);
+  const isAll=(activeParams?.get('network')||'all')==='all';
+  const winDays=activeParams?.get('days')||'30';
   el('h3',a.name,left);
-  el('p',[sizes[a.size],...(a.modalities?.length?a.modalities:['Modalidade geral'])].join(' · '),left);
-  el('small',a.freshness_label?`${a.freshness_label} · Base (${activeParams.get('days')}d): ${a.baseline_on??'indisponível'}`:`Última coleta: ${a.observed_on} · Base (${activeParams.get('days')}d): ${a.baseline_on??'indisponível'} · Fonte: ${a.source}`,left);
-  el('strong',`${number(a.value)} ${labels[activeParams.get('metric')]}`,right);
-  const deltaP=el('p',`Variação (${activeParams.get('days')}d): ${signed(a.growth)} (${a.growth_pct==null?'—':signed(a.growth_pct)+'%'})`,right);
-  deltaP.className=a.growth>0?'positive':a.growth<0?'negative':'';
+  const subParts=[sizes[a.size],...(a.modalities?.length?a.modalities:['Modalidade geral'])];
+  if(isAll&&a.top_network)subParts.push(`Rede em que mais cresceu: ${a.top_network}${a.top_network_growth_pct!=null?` (${signed(a.top_network_growth_pct)}%)`:''}`);
+  el('p',subParts.join(' · '),left);
+  if(isAll){
+    el('small',`Instagram: Incluído na consulta · YouTube: Incluído na consulta · Spotify: Incluído na consulta · TikTok: Incluído na consulta · Base (${winDays}d): ${a.baseline_on??'indisponível'}`,left);
+    el('strong',`Crescimento consolidado: ${a.growth_pct==null?'—':signed(a.growth_pct)+'%'}`,right);
+    const deltaP=el('p',`Maior alta (${winDays}d): ${a.top_network||'—'} · ${number(a.top_network_value??a.value)} ${labels[a.top_network_metric]||''} (${signed(a.top_network_growth??a.growth)} · ${fmtPct(a.top_network_growth_pct)})`,right);
+    deltaP.className=(a.growth_pct??0)>0?'positive':(a.growth_pct??0)<0?'negative':'';
+  }else{
+    el('small',a.freshness_label?`${a.freshness_label} · Base (${winDays}d): ${a.baseline_on??'indisponível'}`:`Última coleta: ${a.observed_on} · Base (${winDays}d): ${a.baseline_on??'indisponível'} · Fonte: ${a.source}`,left);
+    el('strong',`${number(a.value)} ${labels[activeParams.get('metric')]}`,right);
+    const deltaP=el('p',`Variação (${winDays}d): ${signed(a.growth)} (${a.growth_pct==null?'—':signed(a.growth_pct)+'%'})`,right);
+    deltaP.className=a.growth>0?'positive':a.growth<0?'negative':'';
+  }
   try{
     const u=new URL(a.url);
     if(u.protocol==='https:'){const link=el('a','Perfil oficial ↗',right);link.href=u.href;link.target='_blank';link.rel='noopener noreferrer';}
   }catch{}
   draw(a.history);
   el('p','Consultando demais indicadores...',other);
-  const jobs=Object.entries(metrics).flatMap(([network,ms])=>ms.map(metric=>({network,metric})));
+  const jobs=Object.entries(platformMetrics).flatMap(([network,ms])=>ms.map(metric=>({network,metric})));
   const results=await Promise.allSettled(jobs.map(async j=>({...j,data:await get(new URLSearchParams({...j,talent:a.id,days:activeParams.get('days'),end:activeParams.get('end')}))})));
   if(id!==detailToken)return;
   other.replaceChildren();
@@ -282,6 +350,7 @@ async function load(){
     const d=await get(p);
     if(current!==token)return;
     p.set('end',d.end);activeParams=p;lastResponse=d;
+    const isAll=d.network==='all';
     kpis(d);loadCities();
     if(form.elements.modality.options.length===1)for(const m of d.modalities){const o=el('option',m.name,form.elements.modality);o.value=m.id;}
     const artistList=document.querySelector('#compat-artists-list');
@@ -289,16 +358,33 @@ async function load(){
       artistList.replaceChildren();
       for(const item of d.items){const o=el('option',null,artistList);o.value=item.name;}
     }
-    msg.textContent=d.total?`${d.total} artistas monitorados em ${d.network} (${d.start} a ${d.end}). ${d.comparable} com histórico comparável.`:'Nenhum dado disponível para estes filtros.';
+    msg.textContent=d.total
+      ?(isAll
+        ?`${d.total} artistas monitorados em Todas as mídias — Instagram: Incluído na consulta · YouTube: Incluído na consulta · Spotify: Incluído na consulta · TikTok: Incluído na consulta (${d.start} a ${d.end}). ${d.comparable} com histórico comparável.`
+        :`${d.total} artistas monitorados em ${d.network} (${d.start} a ${d.end}). ${d.comparable} com histórico comparável.`)
+      :'Nenhum dado disponível para estes filtros.';
     for(const [idx,a] of d.items.entries()){
       const tr=el('tr',null,rows),td=el('td',null,tr),b=el('button',`${idx+1}. ${a.name}`,td);
-      tr.dataset.artist=a.id;b.type='button';b.className='artist-link';b.onclick=()=>selectArtist(a);
-      el('small',[sizes[a.size],...(a.modalities??[])].join(' · '),td);
-      el('td',number(a.value),tr);
-      const tdDelta=el('td',signed(a.growth),tr);
-      const tdPct=el('td',a.growth_pct==null?'—':signed(a.growth_pct)+'%',tr);
-      if(a.growth>0){tdDelta.className='positive';tdPct.className='positive';}
-      else if(a.growth<0){tdDelta.className='negative';tdPct.className='negative';}
+      tr.dataset.artist=a.id;b.type='button';b.className='artist-link';b.onclick=()=>selectArtist(a,true);
+      if(isAll){
+        const netBreakdown=['Instagram','YouTube','Spotify','TikTok'].map(n=>{
+          const tag=n==='Instagram'?'IG':n==='YouTube'?'YT':n==='Spotify'?'SP':'TK';
+          return `${tag} ${fmtPct(a.networks?.[n]?.growth_pct)}`;
+        }).join(' · ');
+        el('small',`${sizes[a.size]} · Maior alta: ${a.top_network||'—'}${a.top_network_growth_pct!=null?` (${signed(a.top_network_growth_pct)}%)`:''} · ${netBreakdown}`,td);
+        el('td',a.top_network?`${number(a.value)} (${a.top_network})`:number(a.value),tr);
+        const tdDelta=el('td',a.growth==null?'—':`${signed(a.growth)} (${a.top_network})`,tr);
+        const tdPct=el('td',a.growth_pct==null?'—':signed(a.growth_pct)+'%',tr);
+        if((a.growth_pct??0)>0){tdDelta.className='positive';tdPct.className='positive';}
+        else if((a.growth_pct??0)<0){tdDelta.className='negative';tdPct.className='negative';}
+      }else{
+        el('small',[sizes[a.size],...(a.modalities??[])].join(' · '),td);
+        el('td',number(a.value),tr);
+        const tdDelta=el('td',signed(a.growth),tr);
+        const tdPct=el('td',a.growth_pct==null?'—':signed(a.growth_pct)+'%',tr);
+        if(a.growth>0){tdDelta.className='positive';tdPct.className='positive';}
+        else if(a.growth<0){tdDelta.className='negative';tdPct.className='negative';}
+      }
     }
     if(d.items.length)selectArtist(d.items[0]);
     if(!d.items.length){const td=el('td','Sem registros.',el('tr',null,rows));td.colSpan=4;}
@@ -338,9 +424,11 @@ async function loadArtistCards(a,id){
     renderStrategicStrip(d,a);
     draw(a.history,d.national);
     root.replaceChildren();
+    const isAll=(activeParams?.get('network')||'all')==='all';
     for(const n of d.national){
       const x=card(root,n.network),v=n.item,geo=d.regional.find(g=>g.network===n.network);
-      el('small',labels[n.metric],x);
+      const isTop=d.topNetwork?.network===n.network;
+      el('small',`${labels[n.metric]} · ${isAll?'Incluído na consulta':(activeParams?.get('network')===n.network?'Mídia selecionada':'Monitorado')}`+(isTop?' · Maior crescimento':''),x);
       el('strong',number(v?.value),x);
       if(v){
         const delta=el('p',v.growth==null?'Sem histórico comparável':signed(v.growth)+' · '+(v.growth_pct==null?'% indisponível':signed(v.growth_pct)+'%'),x);
@@ -429,37 +517,97 @@ async function loadCities(){
 document.querySelector('#city-scope').onchange=loadCities;
 document.querySelector('#city-region').onchange=loadCities;
 form.elements.network.onchange=()=>{updateMetrics();load();};
+for(const fieldName of ['metric','days','size','modality','order','trend']){
+  if(form.elements[fieldName])form.elements[fieldName].onchange=()=>load();
+}
 form.onsubmit=e=>{e.preventDefault();load();};
 
-let compatToken=0;
+let compatToken=0,cachedMunicipalities=null,municipalitiesPromise=null;
 const compatForm=document.querySelector('#compatibility-form');
 const compatResult=document.querySelector('#compatibility-result');
 const compatStatus=document.querySelector('#compat-status');
+const normStr=s=>String(s??'').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+
+async function ensureMunicipalitiesCatalog(){
+  if(cachedMunicipalities)return cachedMunicipalities;
+  if(municipalitiesPromise)return municipalitiesPromise;
+  municipalitiesPromise=fetch('/api/radar/municipalities',{cache:'no-store'})
+    .then(r=>r.ok?r.json():{items:[]})
+    .then(d=>{
+      cachedMunicipalities=(d.items||[]).map(m=>({
+        ...m,
+        _normName:normStr(m.name),
+        _normUf:normStr(m.uf),
+        _label:`${m.name} / ${m.uf}`
+      }));
+      return cachedMunicipalities;
+    })
+    .catch(()=>[])
+    .finally(()=>{municipalitiesPromise=null;});
+  return municipalitiesPromise;
+}
+
+function renderCityDatalist(items){
+  const list=document.querySelector('#compat-cities-list');
+  if(!list)return;
+  list.replaceChildren();
+  for(const m of items.slice(0,80)){
+    const o=el('option',null,list);
+    o.value=m._label||`${m.name} / ${m.uf}`;
+  }
+}
 
 async function loadCitySuggestions(q=''){
   const list=document.querySelector('#compat-cities-list');
   if(!list)return;
+  const rawQ=normStr(q);
+  const qClean=rawQ.replace(/[\/,-]+/g,' ').replace(/\s+/g,' ').trim();
+  const qParts=qClean?qClean.split(' '):[];
+  const maybeUf=qParts.length>1&&/^[a-z]{2}$/.test(qParts.at(-1))?qParts.at(-1):'';
+  const nameQuery=maybeUf?qParts.slice(0,-1).join(' '):qClean;
+
+  if(cachedMunicipalities?.length){
+    if(!rawQ){
+      renderCityDatalist(cachedMunicipalities);
+      return;
+    }
+    const target=nameQuery||qClean;
+    const matches=cachedMunicipalities.filter(m=>{
+      if(m.code===rawQ||m._normName.includes(rawQ)||m._normName.includes(qClean))return true;
+      if(maybeUf&&m._normUf===maybeUf&&m._normName.includes(nameQuery))return true;
+      return `${m._normName} / ${m._normUf}`.includes(rawQ)||`${m._normName} ${m._normUf}`.includes(qClean);
+    }).sort((a,b)=>{
+      const aScore=a._normName===target?0:a._normName.startsWith(target)?1:2;
+      const bScore=b._normName===target?0:b._normName.startsWith(target)?1:2;
+      return aScore-bScore||a.name.localeCompare(b.name)||a.uf.localeCompare(b.uf);
+    });
+    renderCityDatalist(matches);
+    return;
+  }
+
   try{
     const r=await fetch('/api/radar/municipalities?'+new URLSearchParams({q}),{cache:'no-store'});
     if(!r.ok)return;
     const d=await r.json();
-    list.replaceChildren();
-    for(const m of (d.items||[]).slice(0,60)){
-      const o=el('option',null,list);
-      o.value=`${m.name} / ${m.uf}`;
-    }
+    renderCityDatalist(d.items||[]);
   }catch{}
 }
 
 async function runCompatibilitySimulator(explicitTalentId=''){
   if(!compatForm||!compatResult)return;
   const seq=++compatToken;
-  const artistQ=document.querySelector('#compat-artist')?.value?.trim()||selectedArtist?.name||'';
-  const cityQ=document.querySelector('#compat-city')?.value?.trim()||'Criciúma / SC';
+  const artistQ=document.querySelector('#compat-artist')?.value?.trim()||'';
+  const cityQ=document.querySelector('#compat-city')?.value?.trim()||'';
   const radius=document.querySelector('#compat-radius')?.value??'80';
   const days=document.querySelector('#compat-days')?.value??'30';
   if(!artistQ&&!explicitTalentId){
-    if(compatStatus)compatStatus.textContent='Informe ou selecione um artista para simular a compatibilidade com a cidade.';
+    compatResult.replaceChildren();
+    if(compatStatus)compatStatus.textContent='Selecione um artista válido para simular a compatibilidade comercial.';
+    return;
+  }
+  if(!cityQ){
+    compatResult.replaceChildren();
+    if(compatStatus)compatStatus.textContent='Informe e selecione um município brasileiro no campo Cidade / Praça para simular a viabilidade.';
     return;
   }
   if(compatStatus)compatStatus.textContent=`Calculando compatibilidade comercial de ${artistQ||explicitTalentId} em ${cityQ} (raio ${radius} km)...`;
@@ -593,14 +741,16 @@ function renderCompatibilityResult(d){
 if(compatForm){
   compatForm.onsubmit=e=>{e.preventDefault();runCompatibilitySimulator();};
   const cityInput=document.querySelector('#compat-city');
-  let cityTimer=null;
   if(cityInput){
+    cityInput.value='';
+    cityInput.addEventListener('focus',()=>{
+      ensureMunicipalitiesCatalog().then(()=>loadCitySuggestions(cityInput.value));
+    });
     cityInput.addEventListener('input',()=>{
-      clearTimeout(cityTimer);
-      cityTimer=setTimeout(()=>loadCitySuggestions(cityInput.value),220);
+      loadCitySuggestions(cityInput.value);
     });
   }
-  loadCitySuggestions('');
+  ensureMunicipalitiesCatalog().then(()=>loadCitySuggestions(''));
 }
 
 window.runRadarCompatibility=(artistQuery,cityQuery,radiusKm)=>{
@@ -608,21 +758,30 @@ window.runRadarCompatibility=(artistQuery,cityQuery,radiusKm)=>{
   const cIn=document.querySelector('#compat-city');
   const rIn=document.querySelector('#compat-radius');
   if(aIn&&artistQuery)aIn.value=artistQuery;
-  if(cIn&&cityQuery)cIn.value=cityQuery;
+  if(cIn&&cityQuery!=null)cIn.value=cityQuery;
   if(rIn&&radiusKm!=null)rIn.value=String(radiusKm);
   if(artistQuery&&form?.elements?.q){form.elements.q.value=artistQuery;load();}
-  runCompatibilitySimulator();
+  if((aIn?.value?.trim()||artistQuery)&&(cIn?.value?.trim()||cityQuery)){
+    runCompatibilitySimulator();
+  }else if(compatStatus){
+    compatResult?.replaceChildren();
+    compatStatus.textContent='Informe um município brasileiro no campo Cidade / Praça para simular a viabilidade.';
+    cIn?.focus();
+  }
   document.querySelector('#compatibility-simulator')?.scrollIntoView({behavior:'smooth'});
 };
 
 const urlParams=new URLSearchParams(location.search);
+if(urlParams.get('network')&&form.elements.network&&[...form.elements.network.options].some(o=>o.value===urlParams.get('network')))form.elements.network.value=urlParams.get('network');
+updateMetrics();
+if(urlParams.get('metric')&&form.elements.metric&&[...form.elements.metric.options].some(o=>o.value===urlParams.get('metric')))form.elements.metric.value=urlParams.get('metric');
 if(urlParams.get('q')&&form.elements.q)form.elements.q.value=urlParams.get('q');
 if(urlParams.get('q')&&document.querySelector('#compat-artist'))document.querySelector('#compat-artist').value=urlParams.get('q');
 if(urlParams.get('cityQuery')&&document.querySelector('#compat-city'))document.querySelector('#compat-city').value=urlParams.get('cityQuery');
 if(urlParams.get('radius')&&document.querySelector('#compat-radius'))document.querySelector('#compat-radius').value=urlParams.get('radius');
 
-updateMetrics();load().then(()=>{
-  if(urlParams.get('q')||urlParams.get('cityQuery')||urlParams.get('talent')){
+load().then(()=>{
+  if((urlParams.get('q')||urlParams.get('talent'))&&urlParams.get('cityQuery')){
     runCompatibilitySimulator(urlParams.get('talent')||'');
   }
 });

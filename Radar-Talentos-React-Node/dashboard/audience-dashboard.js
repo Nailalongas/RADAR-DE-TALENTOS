@@ -119,7 +119,9 @@ function applyQuickArtistSearch(){
  }
  const opts=[...field('talent').options].filter(o=>o.value);
  const exact=opts.find(o=>normalize(o.textContent)===q||normalize(o.value)===q);
- const partial=exact||opts.find(o=>normalize(o.textContent).includes(q));
+ const starts=exact||opts.find(o=>normalize(o.textContent).startsWith(q));
+ const tokens=q.split(/\s+/).filter(Boolean);
+ const partial=starts||opts.find(o=>normalize(o.textContent).includes(q))||opts.find(o=>{const tn=normalize(o.textContent);return tokens.length>1&&tokens.every(t=>tn.includes(t));});
  if(partial){
   field('talent').value=partial.value;
   input.value=partial.textContent;
@@ -132,6 +134,10 @@ $('artist-quick-btn')?.addEventListener('click',applyQuickArtistSearch);
 $('artist-quick-search')?.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();applyQuickArtistSearch();}});
 $('artist-quick-search')?.addEventListener('change',()=>{
  const q=normalize($('artist-quick-search').value);
+ if(!q&&field('talent').value){
+  applyQuickArtistSearch();
+  return;
+ }
  if([...field('talent').options].some(o=>o.value&&normalize(o.textContent)===q)){
   applyQuickArtistSearch();
  }

@@ -48,9 +48,12 @@ function resolveCity(db, cityParam, cityQueryParam) {
   const raw = (cityQueryParam || cityParam || '').trim();
   if (!raw) throw new FilterError('Informe um município (código ou nome/UF) para avaliar a compatibilidade');
   const cleaned = norm(raw).replace(/[\/,-]+/g, ' ').replace(/\s+/g, ' ').trim();
-  const parts = cleaned.split(' ');
+  const parts = cleaned.split(' ').filter(Boolean);
   const maybeUf = parts.length > 1 && /^[a-z]{2}$/.test(parts.at(-1)) ? parts.at(-1).toUpperCase() : '';
   const namePart = maybeUf ? parts.slice(0, -1).join(' ') : cleaned;
+  if (!namePart || namePart.length < 2) {
+    throw new FilterError('Informe um município válido (nome da cidade ou Cidade/UF)');
+  }
 
   const candidates = db.prepare(
     `SELECT code, name, uf, region, lat, lon
