@@ -2,10 +2,11 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "rewrites": [
+  "redirects": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/health"
+      "source": "/:path*",
+      "destination": "https://radar.34.70.140.94.sslip.io/:path*",
+      "permanent": false
     }
   ]
 }
