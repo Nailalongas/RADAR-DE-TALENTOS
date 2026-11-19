@@ -10,6 +10,5 @@ COPY --chown=node:node samples ./samples
 COPY --chown=node:node src/domain ./src/domain
 COPY --chown=node:node config/operations.example.json ./config/operations.example.json
 RUN mkdir -p /app/data/inbox /app/data/secrets /app/backups && chown -R node:node /app/data /app/backups
-USER node
 EXPOSE 3000
-CMD ["npm","start"]
+CMD ["node","--experimental-sqlite","scripts/start-persistent.mjs"]

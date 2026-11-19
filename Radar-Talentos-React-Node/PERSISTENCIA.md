@@ -27,7 +27,7 @@ Os arquivos de entrada devem ser legíveis pelo usuário Node UID 1000 no contai
 
 Linux (shell), no servidor com Docker Engine + Compose plugin. Para teste local, Docker Desktop também é opção. Copie `config/persistence.env.example` para `.env.worker` se este arquivo não existir; caso exista, mescle as variáveis, sem sobrescrever credenciais de APIs. Configure RADAR_USER e uma senha aleatória de pelo menos 24 caracteres (não use exemplo). Preserve `config/operations.json`; se não existir, copie `config/operations.example.json` e habilite apenas fontes efetivamente autorizadas.
 
-```
+```sh
 docker volume create radar-talentos-data
 docker volume create radar-talentos-backups
 docker compose --env-file .env.worker config --quiet
@@ -42,13 +42,13 @@ Os volumes novos normalmente recebem as permissões dos diretórios da imagem na
 
 ## 4. Homologar antes do corte
 
-Abra http://127.0.0.1:3000 no host ou use um túnel SSH local; faça login. Confirme Home e Motor de Dados, contagens, filtros e fontes; cadastre candidato legítimo de teste com evidência ou importe um registro autorizado; anote ID e contagem. Rode `docker compose --env-file .env.worker up -d --force-recreate radar worker` e verifique o mesmo ID e o histórico após reiniciar. Confira logs do worker e backups. Os testes automáticos deste pacote já validaram reabertura entre processos Node, mas estes comandos Docker e a conectividade pública devem ser homologados no destino.
+Abra `http://127.0.0.1:3000` no host ou use um túnel SSH local; faça login. Confirme Home e Motor de Dados, contagens, filtros e fontes; cadastre candidato legítimo de teste com evidência ou importe um registro autorizado; anote ID e contagem. Rode `docker compose --env-file .env.worker up -d --force-recreate radar worker` e verifique o mesmo ID e o histórico após reiniciar. Confira logs do worker e backups. Os testes automáticos deste pacote já validaram reabertura entre processos Node, mas estes comandos Docker e a conectividade pública devem ser homologados no destino.
 
 ## 5. Acesso HTTPS e Vercel
 
 Configure DNS de um domínio próprio apontando para a VPS, Caddy no host e firewall (80/443 e SSH restrito). Copie config/Caddyfile.example para configuração do Caddy, substituindo o domínio e mantendo o proxy para 127.0.0.1:3000. Não publique porta 3000 diretamente; Basic Auth exige TLS fora de localhost. Verifique o endereço HTTPS e login no navegador. Depois, execute na pasta do projeto:
 
-```
+```sh
 node scripts/vercel-redirect.mjs https://SEU-DOMINIO-REAL
 ```
 
@@ -58,7 +58,7 @@ O script modifica vercel.json para redirecionar todos os caminhos para o servido
 
 O worker existente roda continuamente e faz snapshots verificados diários dos dois bancos em `/app/backups/radar/` e `/app/backups/discovery/`, retenção de 14 dias. São snapshots independentes (não há uma transação distribuída); para um par consistente no tempo sem gravações, pare radar/worker e qualquer importador ou coletor adicional antes de executar o backup manual:
 
-```
+```sh
 docker compose --env-file .env.worker stop radar worker
 docker compose --env-file .env.worker run --rm --no-deps worker node --experimental-sqlite scripts/persistent-backup.mjs /app/backups
 docker compose --env-file .env.worker up -d radar worker
