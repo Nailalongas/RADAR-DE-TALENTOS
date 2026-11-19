@@ -7,6 +7,7 @@ COPY --chown=node:node database ./database
 COPY --chown=node:node dashboard ./dashboard
 COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node samples ./samples
+COPY --chown=node:node src/domain ./src/domain
 COPY --chown=node:node config/operations.example.json ./config/operations.example.json
 RUN mkdir -p /app/data/inbox /app/data/backups /app/data/secrets && chown -R node:node /app/data
 USER node

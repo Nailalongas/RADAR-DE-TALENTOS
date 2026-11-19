@@ -414,7 +414,7 @@ export function commercialCompatibility(db, p) {
 
   const v4AffinityScore = categoryAffinityRatios.length
     ? clamp((categoryAffinityRatios.reduce((a, b) => a + b, 0) / categoryAffinityRatios.length) * 100)
-    : (v1DirectScore != null ? clamp(v1DirectScore * 0.9) : null);
+    : null;
 
   // Oportunidade de agenda: quanto menor a saturação de concorrentes diretos, maior o índice de espaço na agenda
   const saturationPenalty = Math.min(0.65, cityCompetingEvents.length * 0.14 + Math.max(0, radiusCompetingEvents.length - cityCompetingEvents.length) * 0.05);
@@ -434,11 +434,16 @@ export function commercialCompatibility(db, p) {
 
   let overallScore = null;
   if (hasAnyData && (v1DirectScore != null || v2RadiusScore != null)) {
-    const demandBase =
-      0.34 * (v1DirectScore ?? (v2RadiusScore * 0.65)) +
-      0.26 * (v2RadiusScore ?? v1DirectScore) +
-      0.20 * (v3GrowthScore ?? 65) +
-      0.20 * (v4AffinityScore ?? 70);
+    const components = [
+      [0.34, v1DirectScore ?? (v2RadiusScore * 0.65)],
+      [0.26, v2RadiusScore ?? v1DirectScore],
+      [0.20, v3GrowthScore],
+      [0.20, v4AffinityScore]
+    ].filter(([, val]) => val != null);
+    const totalWeight = components.reduce((sum, [w]) => sum + w, 0);
+    const demandBase = totalWeight > 0
+      ? components.reduce((sum, [w, val]) => sum + w * val, 0) / totalWeight
+      : 0;
     const marketFactor = 0.82 + 0.18 * ((v5AgendaOpportunityScore * 0.6 + v6RestScore * 0.4) / 100);
     overallScore = clamp(demandBase * marketFactor);
   }

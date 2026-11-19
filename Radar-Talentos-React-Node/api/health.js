@@ -5,6 +5,7 @@ import { openDatabase, databasePath } from '../server/src/database/index.mjs';
 import { seedPilotDatabaseIfEmpty } from '../server/src/seed-pilot.mjs';
 import { createRadarServer } from '../server/src/app.mjs';
 import { readDashboardConfig } from '../server/src/event-config.mjs';
+import { productionSecurity } from '../server/src/security.mjs';
 
 let sharedServerPromise = null;
 
@@ -21,8 +22,12 @@ function getServerlessServer() {
         : join(tmpdir(), 'radar-vercel-v18.sqlite');
       const db = openDatabase(targetPath);
       seedPilotDatabaseIfEmpty(db);
+      const security = (process.env.RADAR_USER || process.env.RADAR_PASSWORD)
+        ? productionSecurity(process.env)
+        : null;
       return createRadarServer({
         database: db,
+        security,
         eventsOnly: true,
         combinedDashboard: true,
         syncConfig: readDashboardConfig,
