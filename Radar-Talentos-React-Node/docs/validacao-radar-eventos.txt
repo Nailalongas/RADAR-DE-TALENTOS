@@ -1,0 +1,22 @@
+VALIDAÇÃO DA VERSÃO FOCADA EM EVENTOS
+Node:
+v22.16.0
+
+  duration_ms: 34.983509
+  type: 'test'
+  ...
+1..47
+# tests 47
+# suites 0
+# pass 47
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 690.879427
+
+Build nativo: aprovado.
+Inicialização de banco, configuração, diagnóstico básico de configuração e execução do agendador sem fontes: aprovados.
+Teste HTTP: sincronização de feed de teste, ranking e bloqueios de rotas antigas aprovados.
+Navegação Chromium: não validada (ERR_BLOCKED_BY_ADMINISTRATOR).
+APIs externas e carga geográfica real: não validadas; credenciais e rede necessárias.

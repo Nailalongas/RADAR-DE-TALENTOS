@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import assert from 'node:assert/strict';
 const db=new Map(),bucket={get:async k=>db.has(k)?{json:async()=>structuredClone(db.get(k))}:null,put:async(k,v)=>db.set(k,JSON.parse(v))};
-const source=['worker/profile-blocks.js','worker/api.js','worker/curation.js','worker/coverage.js'].map(p=>fs.readFileSync(p,'utf8').replace(/export /g,'')).join('\n');
+const source=['worker/taxonomy.js','worker/profile-blocks.js','worker/api.js','worker/curation.js','worker/coverage.js'].map(p=>fs.readFileSync(p,'utf8').replace(/export /g,'')).join('\n');
 const ctx=vm.createContext({URL,Date,Intl,Map,Set,crypto:globalThis.crypto});ctx.bucket=bucket;
 vm.runInContext(source,ctx);
 const links=Array.from({length:125},(_,i)=>({username:'perfil'+i,nome:'Artista '+i,categorias:['Cantores'],youtubeChannelId:'UC'+String(i).padStart(22,'0')}));

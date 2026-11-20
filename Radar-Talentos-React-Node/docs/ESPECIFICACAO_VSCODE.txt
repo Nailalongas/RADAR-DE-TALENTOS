@@ -1,0 +1,431 @@
+RADAR DE TALENTOS — INTELIGÊNCIA DE MERCADO PARA EVENTOS
+ESPECIFICAÇÃO FUNCIONAL E TÉCNICA PARA IMPLEMENTAÇÃO NO VS CODE
+Versão 1.0 | 17/11/2026 | Idioma: português do Brasil | Codificação: UTF-8
+
+======================================================================
+1. INSTRUÇÃO PRINCIPAL PARA O AGENTE DE DESENVOLVIMENTO
+======================================================================
+Implemente os requisitos deste documento no repositório existente RADAR-DE-TALENTOS, evoluindo a aplicação de forma incremental. Não crie outro projeto independente nem substitua o legado antes de validar a migração.
+
+O objetivo não é apenas apresentar um protótipo visual: entregar funcionalidades conectadas a uma API e banco persistente, com filtros efetivos, testes, documentação e indicação explícita da origem e disponibilidade dos dados. Não invente métricas reais nem declare uma integração concluída sem verificá-la.
+
+Primeiro inspecione a versão atual do repositório, inclusive alterações posteriores ao ZIP analisado. Leia README, documentação, migrations, testes e código legado. Faça inventário de funcionalidades reutilizáveis e execute testes de referência. Preserve dados, histórico, identidades e integrações existentes. Não execute operações destrutivas nem publique em produção sem autorização. Trabalhe em branch separada quando possível.
+
+Implemente em fases, com entregas utilizáveis e verificáveis. Quando encontrar bloqueio de credencial, acesso ou política de plataforma, implemente contrato do adaptador, importação autorizada e indicação de indisponibilidade; documente exatamente o que falta. Não contorne autenticação, CAPTCHA, limites ou restrições das fontes.
+
+======================================================================
+2. OBJETIVO DO PRODUTO
+======================================================================
+Transformar o Radar de Talentos em uma plataforma nacional de inteligência comercial para produtores de eventos, agências, casas de espetáculo e organizadores de atividades com ingressos ou inscrições pagas.
+
+O sistema precisa responder:
+- Qual artista ou atração contratar?
+- Onde está concentrado seu público no Brasil?
+- Qual modalidade de evento está sendo mais publicada pelos sites de ingressos?
+- Qual modalidade está crescendo e em quais cidades ou regiões?
+- Qual a melhor praça ou época para investigar uma oportunidade comercial?
+- O que existe em um raio de X km de qualquer município brasileiro?
+
+Pilares independentes e integrados:
+A. Radar geográfico de audiência: Instagram, YouTube, Spotify.
+B. Cadastro e descoberta de talentos, atrações, marcas e eventos recorrentes.
+C. Ranking geral e classificação dinâmica por filtros.
+D. Radar de tendências de eventos: oferta publicada em sites de ingressos.
+E. Calendário comercial e sazonalidade.
+F. Radar de oportunidades: cruzamento entre audiência e oferta de eventos.
+
+IMPORTANTE: o Radar de Tendências não tem como objetivo principal descobrir quantos ingressos foram vendidos. Seu objetivo é identificar quais modelos, modalidades e submodalidades de eventos são mais publicados, onde e quando. Volume de publicações não equivale a vendas, demanda comprovada ou faturamento.
+
+======================================================================
+3. CONTEXTO DO REPOSITÓRIO EXISTENTE
+======================================================================
+Estrutura confirmada no ZIP original:
+- Radar-Talentos-React-Node/: projeto principal de migração.
+- src/: frontend React 19, Vite.
+- server/src/: servidor HTTP Node.js.
+- database/migrations/001_initial.sql e 002_taxonomy.sql: migrations existentes.
+- data/radar.sqlite: caminho do banco local, criado em execução.
+- tests/: testes do servidor e do banco.
+- docs/: arquitetura, banco e migração.
+- legado/web/index.html, analysis.js, event-map.js e event-map.css.
+- legado/worker/api.js, event-map.js e módulos de identidade, taxonomia e coleta.
+- legado/scripts/: testes e scripts do sistema original.
+- api/health.js, vercel.json e VERCEL.md: configuração inicial de publicação.
+- arquivo/radar-worker-anterior/: cópia histórica; não confundir com código principal.
+
+O README informa que a nova aplicação React inicialmente consulta o status do backend; pesquisa, mapa, relatórios, armazenamento e coletas ainda precisam ser migrados. O ZIP não inclui credenciais nem a base real de hospedagem. Confira o estado atual antes de alterar.
+
+Comandos existentes (Node.js >= 22.12):
+  npm install
+  npm run db:init
+  npm test
+  npm run build
+  npm run dev       (backend, porta 3000 por padrão)
+  npm run dev:web   (frontend Vite com proxy /api)
+  npm start        (após build)
+
+Reutilizar as tabelas talents, categories, topics, talent_categories, talent_topics, social_accounts, network_metrics, metric_snapshots e collection_runs conforme o esquema existente. Não duplicar conceitos desnecessariamente. Criar migrations novas, sem editar migrations já aplicadas. Verificar compatibilidade, backup e recuperação.
+
+======================================================================
+4. TAXONOMIA: MODALIDADES E SUBMODALIDADES
+======================================================================
+Modalidade de evento não é necessariamente a categoria original do talento. Um artista pode atuar em muitas modalidades e uma modalidade pode conter eventos sem artista individual. Criar taxonomia de eventos integrada à taxonomia de talentos, com relacionamentos muitos-para-muitos e classificação principal para agregação sem duplicidade.
+
+Taxonomia inicial (editável pela administração):
+- Shows e música: sertanejo, rock, pop, rap/hip-hop, funk, pagode, samba, MPB, gospel, jazz/blues, eletrônico, forró e outros.
+- Teatro e espetáculos: comédia, drama, musical, dança, ópera, ballet, circo, artes cênicas.
+- Humor: stand-up, improvisação, shows humorísticos.
+- Palestras e educação: liderança, vendas, negócios, finanças, saúde, tecnologia, desenvolvimento pessoal, workshops, cursos, imersões, congressos.
+- Corridas: 5 km, 10 km, meia maratona, maratona, trail run, corrida infantil e outras distâncias.
+- Esportes: ciclismo, triatlo, lutas, futebol, competições e outros.
+- Festas e festivais: festivais musicais, culturais, festas temáticas, festas tradicionais.
+- Infantil e família: personagens, espetáculos, parques, experiências, eventos infantis.
+- Gastronomia: festivais, cerveja, vinho, degustações, experiências gastronômicas.
+- Feiras e exposições: negócios, tecnologia, geek, automóveis, cultura, convenções.
+- Experiências e turismo: imersões, exposições interativas, passeios e atrações com ingresso.
+- Outros / não classificado: fila de revisão, sem atribuição arbitrária.
+
+Permitir expansões sem mudanças no código. Definir sinônimos e mapeamento das categorias originais de cada plataforma para a taxonomia canônica, com confiança e revisão manual. Preservar categoria original recebida. Um festival pode ter múltiplas etiquetas, mas deve ser contado uma vez no total geral. No ranking por categorias, utilizar modalidade principal por padrão; caso haja modo multietiqueta, informar que os totais podem se sobrepor.
+
+======================================================================
+5. RADAR GEOGRÁFICO DE AUDIÊNCIA — PRIORIDADE CENTRAL
+======================================================================
+Implementar mapa navegável de todo o Brasil, com estados, cinco regiões brasileiras e todos os municípios da base oficial vigente na importação. Registrar versão e data da base.
+
+Níveis de visualização: Brasil, macrorregião, UF, município e raio geográfico. Permitir clicar no mapa, pesquisar município pelo nome/UF, selecionar cidade de referência e visualizar a fronteira do raio. Usar código municipal de 7 dígitos para desambiguar homônimos.
+
+Interface:
+- Mapa coroplético por região, UF ou município; bolhas ou mapa de intensidade para os municípios com informação disponível.
+- Legenda com escala, unidade, período, plataforma e qualidade/cobertura dos dados.
+- Distinção visual entre zero observado, dado indisponível e estimativa.
+- Tooltip com município, métricas, fonte, data e participação na audiência conhecida.
+- Ranking de cidades, estados e regiões ao lado do mapa.
+- Gráficos de distribuição, participação percentual, crescimento temporal e comparação entre talentos.
+- Alternar contagem absoluta e indicador por habitante quando aplicável, usando população oficial versionada.
+- Zoom, seleção, ajuste da extensão do mapa ao raio e ação de limpar filtros.
+
+Filtro por quilômetros:
+- Cidade de referência selecionável em todo o território brasileiro.
+- Presets 25, 50, 100, 150, 200, 300, 500, 750, 1.000 km e entrada personalizada validada.
+- Opção de desativar o raio para visualizar o país inteiro.
+- Distância geodésica em linha reta (Haversine ou equivalente), com coordenadas WGS84 e raio médio terrestre de 6.371 km. Não confundir com distância rodoviária.
+- Considerar a coordenada de referência de cada município como critério inicial de inclusão; para eventos com coordenadas próprias, usar localização do evento e indicar o critério.
+- O limite é inclusivo: distância <= raio. Validar casos de fronteira, raio zero e coordenadas inválidas.
+- Aplicar o mesmo filtro a mapas, rankings, tabelas, totais e exportações; não apenas desenhar um círculo.
+- Se região/UF e raio estiverem ativos, aplicar interseção e mostrar claramente os filtros.
+- Distância rodoviária e tempo de viagem são evolução opcional, não requisito inicial.
+
+Métricas por plataforma:
+- YouTube: visualizações, inscritos e demais métricas disponíveis. Dados geográficos somente na granularidade efetivamente autorizada/disponibilizada pela fonte; não presumir acesso municipal para qualquer canal brasileiro.
+- Instagram: seguidores, alcance, visualizações e distribuição geográfica quando disponíveis via Insights de conta autorizada ou relatório legítimo.
+- Spotify: ouvintes, reproduções e cidades disponíveis em relatórios oficiais autorizados (por exemplo, Spotify for Artists). Não presumir que a API pública forneça audiência por cidade.
+
+Registrar separadamente métrica, rede, unidade e período. Nunca somar seguidores, inscritos, visualizações e ouvintes como se fossem pessoas únicas. O modo 'todas as redes' deve mostrar séries separadas ou índice relativo documentado. Não atribuir audiência municipal a partir de um total estadual ou nacional sem evidência. Se houver somente dados nacionais, indicar que o filtro municipal/raio não pode ser calculado para aquela fonte.
+
+======================================================================
+6. DADOS REAIS, FONTES E IMPORTAÇÃO
+======================================================================
+Antes de implementar cada integração, verificar documentação oficial atual, escopo de permissões, políticas de uso, retenção, limites e possibilidade de análise/comercialização. Não supor que endpoints antigos continuem operantes.
+
+Fontes possíveis: YouTube Analytics autorizado, Instagram Insights autorizado, Spotify for Artists via relatório autorizado, fornecedores licenciados (por exemplo, Modash ou HypeAuditor, sujeitos a avaliação) e base geográfica oficial para malhas, coordenadas e população.
+
+Criar importação CSV/JSON de audiência regional para viabilizar o MVP antes de todas as autorizações. Campos mínimos: talent_id ou identificador resolvível, plataforma, métrica, unidade, granularidade, código municipal (se aplicável), início/fim do período, valor, fonte, data da coleta, tipo de dado e referência do relatório. Validar e apresentar prévia, linhas rejeitadas, duplicidades e resumo da importação. Garantir idempotência.
+
+Classificação de proveniência:
+- Verificado: informação oficial autorizada ou relatório comprovável.
+- Estimado: informação licenciada ou modelo justificável, com metodologia e confiança.
+- Indisponível: ausência, restrição, erro ou cobertura insuficiente.
+- Demonstração: dados fictícios apenas em ambiente separado, claramente identificados.
+
+Não registrar ausência como zero. Não gerar estimativas distribuindo seguidores pela população brasileira. Não misturar demonstração e produção. Exibir data da última atualização, erros, cobertura, granularidade, e filtros incompatíveis. Percentuais devem informar seu denominador (por exemplo, audiência conhecida no Brasil), sem pressupor cobertura integral.
+
+======================================================================
+7. FILTROS GLOBAIS E EXPERIÊNCIA DE USO
+======================================================================
+Criar estado central de filtros para sincronizar módulos aplicáveis:
+- Talento(s), atração, marca/evento recorrente e busca textual.
+- Modalidade e submodalidade (seleção múltipla).
+- Brasil, região, UF, município, cidade de referência e raio em km.
+- Plataforma social ou fonte de eventos, conforme o módulo.
+- Períodos 7, 30, 60, 90, 180, 365 dias e intervalo personalizado.
+- Métrica, forma de ordenação, tipo de dado (verificado/estimado), cobertura.
+- Data de publicação/primeira detecção OU data de realização do evento, conforme a análise.
+- Situação do evento, faixa de preço, produtor e local quando disponíveis.
+
+Filtros devem ser compartilháveis por URL, com valores padrão claros e ação limpar. O backend deve validar filtros, fazer paginação, agregação e ordenação antes de retornar. Não depender apenas de filtragem de uma página carregada. Exibir carregamento, erro, ausência de resultados e última atualização. Exportar CSV com os filtros ativos e metadados.
+
+======================================================================
+8. RANKING DE TALENTOS E ATRAÇÕES
+======================================================================
+Entregar:
+- Ranking geral Brasil de talentos cadastrados/monitorados.
+- Ranking por plataforma e métrica.
+- Ranking por modalidade e submodalidade.
+- Ranking por região, UF, município e raio.
+- Ranking por audiência conhecida, crescimento absoluto, crescimento percentual, aceleração, engajamento (quando disponível), talentos emergentes e potencial relativo.
+- Ranking de eventos/atrações recorrentes separado do ranking de pessoas quando necessário (corridas, feiras etc.).
+
+Cada filtro deve recalcular a classificação a partir da base completa correspondente; posição local não é apenas posição nacional filtrada. Mostrar posição geral e posição no recorte quando ambas forem comparáveis. Exibir nome, categoria, métricas individuais, variação, período, posição anterior, cobertura, confiança e acesso ao perfil detalhado. Usar critério determinístico para empates.
+
+Crescimento percentual = (valor final - valor inicial) / valor inicial * 100, apenas para valores comparáveis e base inicial positiva. Mostrar crescimento absoluto e tratamento de bases pequenas; base zero/ausente não deve produzir infinito ou falso crescimento. Excluir/rebaixar resultados com cobertura insuficiente segundo regra documentada.
+
+Radar Score (fase posterior, pesos iniciais sugeridos):
+- Concentração geográfica 30%; crescimento 25%; demanda comprovada 20%; histórico de eventos 15%; engajamento 10%.
+- Alternativa inicial de crescimento: crescimento 35%, aceleração 25%, consistência 20%, posição na categoria 10%, interesse regional 10%.
+- São modelos de experimentação, não pesos validados. Não misturar as duas fórmulas sem versionamento. Normalizar por modalidade e porte; corrida não é penalizada por ausência de Spotify.
+- Se não houver demanda comprovada, não substituir por quantidade de eventos publicados. Nesta situação manter componente indisponível ou gerar índice parcial de sinais digitais com cobertura explícita. Comparações gerais devem usar metodologia compatível e não atribuir score artificial a registros sem dados suficientes.
+
+======================================================================
+9. RADAR DE TENDÊNCIAS DE EVENTOS — OFERTA PUBLICADA
+======================================================================
+Monitorar prioritariamente as categorias e modelos dos eventos publicados nestas fontes candidatas (confirmar possibilidade técnica e autorização de cada uma):
+1. Sympla — eventos diversos.
+2. Eventim — shows e espetáculos.
+3. Ticketmaster — grandes eventos.
+4. Ingresse — festivais, festas e entretenimento.
+5. Ticket Sports — corridas e esportes.
+6. Ticket360 — shows e eventos.
+7. Blueticket — entretenimento.
+8. Disk Ingressos — shows, teatro e humor.
+9. Bilheteria Digital — eventos diversos.
+10. Uhuu — espetáculos e entretenimento.
+
+Criar cadastro de fontes extensível. Para cada plataforma: adaptador independente, situação habilitada/desabilitada, URL e configuração autorizada, frequência de coleta, paginação, limites, última tentativa, última coleta válida e cobertura observada. Priorizar APIs oficiais, feeds, parcerias e importações autorizadas. Usar páginas públicas apenas quando a automação e reutilização forem permitidas. Não contornar bloqueios nem inventar endpoints.
+
+Dados de cada evento (quando disponíveis):
+- Identificador na fonte, URL original e plataforma de ingresso.
+- Nome original e normalizado, descrição e categoria original.
+- Modalidade/submodalidades canônicas, confiança da classificação e revisão.
+- Artista(s)/atração(ões), marca do evento ou série recorrente.
+- Produtor/organizador e local de realização.
+- Município (código oficial), UF, região, endereço/coord. do evento quando disponíveis.
+- Data de publicação original (somente se fornecida), primeira detecção e última detecção.
+- Data/horário de início e fim, sessões, fuso horário e modalidade presencial/online/híbrida.
+- Preço mínimo/máximo, moeda, ingresso pago/gratuito/desconhecido.
+- Status publicado/ativo, encerrado, cancelado, adiado, esgotado informado pela fonte, desconhecido.
+- Origem, momento da coleta e metadados de cobertura.
+
+Escopo: eventos com ingressos ou inscrições comercializados. Eventos gratuitos podem ser mantidos como categoria separada e excluídos por padrão da análise comercial. Online sem local físico não entra no raio; híbrido entra apenas se possuir local válido, com identificação.
+
+Métricas centrais:
+- Quantidade de eventos únicos identificados por modalidade.
+- Novos eventos publicados/detectados no período.
+- Participação de cada modalidade na oferta monitorada.
+- Crescimento das publicações versus período anterior equivalente.
+- Ranking de submodalidades por plataforma, região, UF, município e raio.
+- Ranking de cidades por oferta de uma modalidade, com opção por habitante.
+- Agenda futura de eventos, número de sessões e antecedência de divulgação.
+- Preço anunciado e distribuição de preços, sem interpretar preço como receita.
+
+Diferenciar data publicada da primeira detecção: se não houver data original, falar 'novos eventos detectados', não afirmar dia exato de publicação. A primeira carga é inventário inicial e não deve ser interpretada como explosão de novos eventos. Períodos com cobertura diferente devem ser sinalizados. Queda de coleta não significa queda de oferta.
+
+Deduplicação obrigatória:
+- Identidade primária por plataforma + identificador externo ou URL canônica.
+- Identificar duplicados entre plataformas por nome normalizado, atração, local, município, data e horário.
+- Não fundir eventos apenas pelo título. Não confundir sessões, edições anuais, cidades ou reapresentações.
+- Manter eventos canônicos, anúncios vinculados, sessões e histórico de mudanças.
+- Casos ambíguos devem ir para revisão humana, com possibilidade de desfazer fusão.
+- Mostrar totais separados: anúncios, eventos únicos e sessões. Ranking geral utiliza eventos únicos por padrão, ranking por plataforma pode contar cada evento uma vez dentro da plataforma.
+
+Não é necessário obter vendas efetivas para entregar o módulo. Se houver dados de vendas legitimamente fornecidos, armazenar separadamente. Lote encerrado, esgotado, sessão extra e disponibilidade são sinais, não quantidade de ingressos vendidos. Não estimar ocupação ou faturamento sem base documentada.
+
+======================================================================
+10. GRÁFICOS, RANKINGS E CALENDÁRIO DE EVENTOS
+======================================================================
+Painel de tendências deve conter:
+- Cards: eventos únicos, novos detectados/publicados, modalidades, municípios, fontes ativas.
+- Barras horizontais: ranking de modalidades e submodalidades mais publicadas.
+- Linha temporal: evolução das novas publicações/detecções por categoria.
+- Barras agrupadas/empilhadas: comparação de categorias entre plataformas e regiões.
+- Mapa de concentração de eventos por região, UF e município com filtro de raio.
+- Calendário de realização e mapa de calor mensal por modalidade.
+- Ranking de cidades e plataformas; lista de eventos com links para a fonte.
+- Gráficos de antecedência entre publicação e realização, quando data confiável existir.
+
+Separar visão de fluxo de publicações e visão de calendário de realização. Não misturar datas na mesma série. Para sazonalidade, mostrar meses/anos comparáveis e cobertura; sem histórico suficiente, dizer que ainda não é possível avaliar sazonalidade. Mostrar variação e contagens absolutas. Exemplo de consulta desejada: 'Quais categorias de eventos estão sendo mais publicadas nos últimos 30 dias em um raio de 300 km de Curitiba?'.
+
+======================================================================
+11. RADAR DE OPORTUNIDADES
+======================================================================
+Cruzar audiência geográfica e oferta de eventos por modalidade, região, cidade, raio e período compatível.
+
+Matriz conceitual:
+- Alta audiência + pouca oferta observada: sinal de oportunidade a investigar.
+- Alta audiência + muita oferta observada: mercado potencialmente competitivo.
+- Baixa audiência + pouca oferta observada: mercado experimental.
+- Baixa audiência + muita oferta observada: possível excesso de oferta.
+
+Definir critérios de alto/baixo por percentis ou outra metodologia transparente, dentro de grupos comparáveis. Considerar cobertura das duas fontes. Não tratar dado ausente como pouca oferta/audiência. Exibir a origem das métricas, confiança, justificativa e fatores que limitam a interpretação. Nenhum resultado equivale a garantia de vendas ou recomendação financeira definitiva.
+
+Entregas futuras: ranking de praças promissoras, comparação de cidades, calendário de oportunidades, alertas de crescimento de modalidades, lista de atrações compatíveis e relatórios de decisão para produtoras. Preço, capacidade de casas e vendas reais são dados complementares quando autorizados e disponíveis.
+
+======================================================================
+12. BANCO DE DADOS — PROPOSTA DE EXTENSÃO
+======================================================================
+Adaptar nomes à arquitetura existente. Criar migrations incrementais, FK, índices, constraints e histórico auditável. Sugestão de entidades:
+- geo_regions: código e nome da região.
+- geo_states: UF, código estadual, região.
+- geo_municipalities: código municipal, nome, UF, latitude, longitude, população, data/versão da fonte.
+- event_modalities / event_submodalities: taxonomia hierárquica e situação.
+- talent_event_modalities: relação talentos/modalidades.
+- audience_geo_snapshots: talento/conta, plataforma, métrica, território, granularidade, período, valor, unidade, origem, confiança, coletado_em.
+- data_sources: tipo, nome, permissões/escopo de uso, estado da integração.
+- event_sources: plataformas de ingressos e configuração operacional sem segredos em claro.
+- events: registro canônico, modalidade principal, atração, cidade, preço quando aplicável e situação.
+- event_classifications: etiquetas adicionais e confiança.
+- event_listings: fonte, ID externo, URL, categoria original, publicação, detecção, histórico.
+- event_sessions: datas, horários, locais, status e vinculação ao evento.
+- event_talents: relação eventos/talentos/atrações.
+- event_status_history: observações de estado por fonte e momento.
+- collection_runs: reutilizar/estender para tentativas, resultados, erros, cobertura e cursor.
+- ranking_snapshots: opcional, histórico de posições e metodologia versionada para recortes predefinidos.
+- users/roles/audit_logs: gestão de acesso e auditoria se ainda inexistentes.
+
+Separar valores ausentes de valores zero. Usar tipo de território e chave geográfica compatíveis; permitir nível país sem município. Chaves de unicidade de audiência devem considerar conta/talento, métrica, origem, território e período. Definir tratamento de revisões sem perda de histórico. Evitar dupla soma de agregados nacionais, estaduais e municipais. Não somar períodos de ouvintes únicos como se fossem pessoas distintas.
+
+SQLite é adequado para o MVP local. Caso produção exija concorrência e consultas geográficas mais intensas, avaliar PostgreSQL/PostGIS. Não depender de SQLite local efêmero na Vercel. Definir backup e persistência antes da produção.
+
+======================================================================
+13. API E SERVIÇOS — CONTRATOS SUGERIDOS
+======================================================================
+Adaptar ao servidor HTTP existente em vez de introduzir framework desnecessário. Rotas propostas:
+GET /api/geo/regions
+GET /api/geo/states?region=
+GET /api/geo/municipalities?search=&uf=
+GET /api/geo/radius?municipalityId=&radiusKm=
+GET /api/modalities
+GET /api/talents
+GET /api/talents/:id
+GET /api/audience/map
+GET /api/audience/distribution
+GET /api/audience/history
+GET /api/rankings/talents
+GET /api/events
+GET /api/events/:id
+GET /api/events/trends
+GET /api/events/rankings
+GET /api/events/map
+GET /api/events/calendar
+GET /api/opportunities
+GET /api/sources/status
+POST /api/admin/audience/import
+POST /api/admin/events/import
+POST /api/admin/collections/run
+
+As rotas de escrita e administração exigem autenticação/autorização. Não expor execução de coletas publicamente. Rotas analíticas devem usar filtros comuns: modalityIds, submodalityIds, region, uf, municipalityId, centerMunicipalityId, radiusKm, platform, sourceIds, talentIds, dateFrom, dateTo, dateBasis, metric, order, page, pageSize. Validar e documentar enums e limites.
+
+Resposta com itens, total, filtros efetivos, período, unidade, fonte, cobertura e timestamp de atualização. Para mapas, retornar agregações por ID territorial. Para rankings, ordenar considerando toda a seleção antes de paginar. Retornar erros claros com códigos HTTP apropriados. Consultas parametrizadas e índices nos campos de filtro.
+
+======================================================================
+14. FRONTEND E MENU
+======================================================================
+Interface profissional, responsiva, em português do Brasil. Proposta de menu:
+1. Visão geral
+2. Radar geográfico de audiência
+3. Talentos e atrações
+4. Ranking geral e por modalidade
+5. Talentos em ascensão
+6. Radar de tendências de eventos
+7. Ranking de modalidades e plataformas
+8. Calendário comercial
+9. Radar de oportunidades / termômetro por praça
+10. Comparador de talentos e cidades
+11. Relatórios e alertas (evolução)
+12. Administração: taxonomia, fontes, importações, coletas e revisão
+
+Layout central: barra de filtros; indicadores principais; mapa com legenda; ranking lateral ou inferior; gráficos; detalhes clicáveis e exportação. Oferecer navegação entre mapa e perfil do artista, e entre tendência e lista de eventos que fundamentam a contagem. Priorizar acessibilidade, responsividade, navegação por teclado e contraste. Não depender exclusivamente da cor para explicar informações.
+
+Stack sugerida: React/Vite existentes; Leaflet ou biblioteca geográfica equivalente; malhas oficiais em GeoJSON simplificado/TopoJSON ou tiles; Apache ECharts ou equivalente para gráficos. Escolher bibliotecas compatíveis, registrar dependências e lockfile. Respeitar atribuição e política do provedor cartográfico. Evitar carregar todas as geometrias municipais detalhadas no primeiro render; usar níveis de detalhe, cache e agregação do servidor.
+
+======================================================================
+15. COLETAS, SEGURANÇA E OPERAÇÃO
+======================================================================
+- Coletas diárias quando autorizadas e tecnicamente possíveis, frequência configurável por fonte.
+- Jobs idempotentes, concorrência controlada, paginação, checkpoints, retries com backoff e respeito a rate limits.
+- Registrar status, duração, quantidade processada, novos registros, duplicados, falhas e cobertura. Não apagar dados por falha temporária de fonte.
+- Validar autenticação explícita de rotas administrativas e de escrita, inclusive equivalentes legado /api/collect, /api/daily e /api/build-base.
+- Segredos apenas via variáveis de ambiente/gerenciador seguro; .env.example sem chaves reais; logs sem tokens.
+- Validar importações, entradas, URLs e destinos de chamadas externas; evitar SSRF, injeção SQL e exposição de dados.
+- Princípios de minimização de dados e LGPD; usar agregados de audiência, não identificar seguidores individuais.
+- Revisar termos de uso, permissões de retenção e comercialização por fonte.
+- Health check deve distinguir disponibilidade do processo, banco persistente e status das integrações.
+- Manter backup, documentação de recuperação, migrations testadas e estratégia de rollback.
+- Não publicar aplicação incompleta como operacional. Vercel pode hospedar frontend/API compatível, mas a configuração inicial não executa o servidor Node com SQLite persistente. Definir hospedagem de backend, banco e jobs adequada à produção.
+
+======================================================================
+16. ROADMAP DE IMPLEMENTAÇÃO (ORDEM PRIORITÁRIA)
+======================================================================
+FASE 0 — Preservação e diagnóstico
+- Conferir estado do repositório, executar testes de referência e build.
+- Mapear dados e funcionalidades do legado, obter backup autorizado e definir migração.
+- Investigar falha conhecida anteriormente no teste da fila Instagram; confirmar se persiste nesta versão.
+- Definir persistência e proteção de rotas. Não destruir históricos.
+
+FASE 1 — MVP geográfico e rankings (primeira entrega utilizável)
+- Base geográfica nacional e taxonomia de modalidades/submodalidades.
+- Migrations, endpoints e serviços de filtros.
+- Importação de audiência regional CSV/JSON real autorizada e base vazia honesta quando não houver dados.
+- Mapa Brasil/UF/região/município, círculo de raio e rankings por audiência/crescimento.
+- Filtros sincronizados e comparação entre talentos.
+- Piloto sugerido: Natiruts, Curitiba/São Paulo/Porto Alegre, se houver dados autorizados. Nenhuma métrica simulada como real.
+
+FASE 2 — Radar de tendências de eventos em paralelo à melhoria da audiência
+- Criar fontes, eventos canônicos, anúncios, sessões e taxonomia.
+- Importação inicial e adaptador autorizado piloto; expandir às dez fontes conforme acessos reais.
+- Classificação, deduplicação, monitoramento diário e cobertura.
+- Ranking nacional e filtrado de modalidades/submodalidades.
+- Gráficos de crescimento, distribuição geográfica e calendário.
+- Conectar fontes sociais autorizadas prioritárias e registrar limitações.
+
+FASE 3 — Inteligência de oportunidades
+- Cruzamento entre audiência e oferta de eventos.
+- Comparação de praças, score versionado, sazonalidade e relatórios.
+- Alertas configuráveis, infraestrutura de produção e observabilidade.
+- Validar com produtores reais antes de afirmar capacidade preditiva.
+
+Não condicionar a entrega do mapa à disponibilidade de todas as APIs; importação autorizada é a alternativa inicial. Também não bloquear o painel de tendências pela falta de dados de vendas, pois vendas não são a métrica principal.
+
+======================================================================
+17. CRITÉRIOS DE ACEITAÇÃO E TESTES
+======================================================================
+[ ] Instalação, migrations, testes e build executam com sucesso; registrar versões e saídas reais.
+[ ] Funcionalidades originais e registros existentes permanecem preservados; migração validada em cópia.
+[ ] Base nacional importada e validada contra versão oficial; códigos de municípios únicos e coordenadas válidas.
+[ ] Seleção de qualquer município da base, incluindo homônimos desambiguados por UF.
+[ ] Cálculo de raio testado com municípios conhecidos, pontos no limite e casos inválidos.
+[ ] Alterar modalidade, região, cidade, raio, período ou rede recalcula mapa, indicadores, ranking e exportação aplicáveis.
+[ ] Ranking geral e ranking local paginados, ordenados e calculados sobre o recorte completo.
+[ ] Dados não autorizados/ausentes aparecem como indisponíveis; zero real permanece zero.
+[ ] Importar duas vezes o mesmo relatório ou anúncio não duplica registros.
+[ ] Testes impedem a soma de métricas incompatíveis ou de agregações geográficas sobrepostas.
+[ ] Um evento anunciado em duas plataformas conta como um evento único no geral e mantém duas origens.
+[ ] Eventos distintos com o mesmo nome, sessões diferentes e edições recorrentes não são fundidos incorretamente.
+[ ] Ranking de modalidades exibe quantidade publicada/detectada, participação e crescimento, sem apresentar isso como vendas.
+[ ] Inventário inicial não é tratado como eventos novos do mercado; falhas de coleta não provocam tendências falsas.
+[ ] Filtros de data de realização e de publicação/detecção geram resultados distintos e corretos.
+[ ] Classificação incerta pode ser revisada e corrigida; categoria original preservada.
+[ ] Matriz de oportunidades não calcula baixa audiência/oferta se a cobertura for insuficiente.
+[ ] Rotas de administração e coletas rejeitam acesso não autorizado.
+[ ] Dashboard tem estados de carregamento, vazio, erro e dados parciais.
+[ ] Exportação CSV reproduz filtros, unidades, datas e proveniência.
+[ ] Testar integração com dados reais somente quando autorizados; fixtures sintéticas isoladas em testes/demonstração.
+[ ] Documentar latência e desempenho com volume representativo; não declarar escalabilidade sem teste.
+
+======================================================================
+18. ENTREGA ESPERADA DO AGENTE NO VS CODE
+======================================================================
+Ao concluir cada fase, apresentar:
+- Resumo das funcionalidades efetivamente implementadas.
+- Arquivos criados e modificados, migrations e dependências adicionadas.
+- Instruções de execução local e configuração, preferencialmente no README.
+- Contratos da API e exemplos de CSV importável com dados de exemplo claramente fictícios.
+- Testes executados, evidências de resultados e eventuais falhas.
+- Dados reais importados/coletados e respectivos limites de cobertura, se houver autorização.
+- Integrações que funcionam e integrações bloqueadas por ausência de credencial, permissão ou fonte.
+- Riscos, decisões técnicas e próximos passos verificáveis.
+
+Orientação final: comece pela Fase 0 e avance para a Fase 1, sem remover o legado. Entregue primeiro um mapa geográfico e ranking que realmente operem sobre a base de dados, não apenas telas ilustrativas. Em seguida implemente o Radar de Tendências para descobrir quais modalidades os sites de ingressos mais publicam, e faça o cruzamento comercial.
+
+VISÃO DO PRODUTO: DESCOBRIR O QUE PRODUZIR, ONDE PRODUZIR, QUANDO PRODUZIR E QUAL ATRAÇÃO CONTRATAR, COM BASE EM DADOS RASTREÁVEIS.
+
+FIM DA ESPECIFICAÇÃO.

@@ -1,0 +1,9 @@
+RADAR DE TALENTOS — FASE 6
+Validação local
+Node: v24.18.0
+
+Suíte de testes automatizados: 100% aprovados
+Configuração de exemplo: válida.
+CLI de operação: executada em banco com fontes externas desabilitadas.
+Backup diário e manual: criados e verificados; snapshot quick_check=ok.
+Build React + Vite: compilado e validado com sucesso.

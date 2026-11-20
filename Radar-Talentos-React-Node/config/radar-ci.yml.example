@@ -1,0 +1,39 @@
+name: Radar CI
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Radar-Talentos-React-Node
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+      - run: npm test
+      - run: npm run build
+      - run: npm run ops:check -- config/operations.example.json
+      - name: Production smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          export NODE_ENV=production RADAR_USER=ci RADAR_PASSWORD="$(openssl rand -hex 24)" RADAR_DATABASE_PATH="$RUNNER_TEMP/radar-ci.sqlite"
+          node --experimental-sqlite server/src/index.mjs > "$RUNNER_TEMP/radar-ci.log" 2>&1 &
+          pid=$!
+          trap 'kill "$pid" 2>/dev/null || true' EXIT
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:3000/api/health >/dev/null; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:3000/api/health >/dev/null
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3000/api/operations/status)" = 401
+          curl -fsS -u "$RADAR_USER:$RADAR_PASSWORD" http://127.0.0.1:3000/api/operations/status >/dev/null
+          curl -fsS -u "$RADAR_USER:$RADAR_PASSWORD" http://127.0.0.1:3000/ >/dev/null

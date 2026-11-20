@@ -1,0 +1,9 @@
+import {cp,mkdir} from 'node:fs/promises';
+import {execFileSync} from 'node:child_process';
+execFileSync(process.execPath,['--check','dashboard/dashboard.js'],{stdio:'inherit'});
+execFileSync(process.execPath,['--check','dashboard/audience-dashboard.js'],{stdio:'inherit'});
+execFileSync(process.execPath,['--check','dashboard/layout.js'],{stdio:'inherit'});
+execFileSync(process.execPath,['--check','dashboard/commercial.js'],{stdio:'inherit'});
+execFileSync(process.execPath,['--check','dashboard/acquisition.js'],{stdio:'inherit'});
+execFileSync(process.execPath,['--check','dashboard/discovery.js'],{stdio:'inherit'});
+await mkdir('dist',{recursive:true});await cp('dashboard','dist',{recursive:true});console.log('Painel de eventos copiado para dist. O servidor Node continua obrigatório para banco e sincronização.');

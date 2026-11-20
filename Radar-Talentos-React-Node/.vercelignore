@@ -1,4 +1,7 @@
-legado/
+node_modules
 data/
-.npm-cache/
-tests/
+.git
+.env*
+migration-input/
+config/operations.json
+config/discovery-refresh.json

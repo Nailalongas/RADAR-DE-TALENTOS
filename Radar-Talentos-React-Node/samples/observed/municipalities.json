@@ -1,0 +1,62 @@
+[
+  {
+    "code": "4106902",
+    "name": "Curitiba",
+    "uf": "PR",
+    "region": "Sul",
+    "lat": -25.4133,
+    "lon": -49.2679,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  },
+  {
+    "code": "3550308",
+    "name": "São Paulo",
+    "uf": "SP",
+    "region": "Sudeste",
+    "lat": -23.5477,
+    "lon": -46.6376,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  },
+  {
+    "code": "2611606",
+    "name": "Recife",
+    "uf": "PE",
+    "region": "Nordeste",
+    "lat": -8.0632,
+    "lon": -34.8711,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  },
+  {
+    "code": "5300108",
+    "name": "Brasília",
+    "uf": "DF",
+    "region": "Centro-Oeste",
+    "lat": -15.7843,
+    "lon": -47.9081,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  },
+  {
+    "code": "1302603",
+    "name": "Manaus",
+    "uf": "AM",
+    "region": "Norte",
+    "lat": -3.0922,
+    "lon": -60.0604,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  },
+  {
+    "code": "4119152",
+    "name": "Pinhais",
+    "uf": "PR",
+    "region": "Sul",
+    "lat": -25.445,
+    "lon": -49.193,
+    "source": "Base Geográfica Nacional — Códigos dos Municípios",
+    "coordinate_source": "Base Geográfica Nacional — Coordenadas Municipais (WGS84)"
+  }
+]

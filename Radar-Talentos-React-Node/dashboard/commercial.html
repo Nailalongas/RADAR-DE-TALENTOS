@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Oportunidade Comercial | Radar de Talentos</title>
+  <link rel="stylesheet" href="/commercial.css">
+  <link rel="stylesheet" href="/commercial-cards.css">
+  <script defer src="/commercial.js"></script>
+  <script defer src="/layout.js"></script>
+</head>
+<body class="commercial-page">
+  <header class="sidebar">
+    <a class="brand" href="/">
+      <span class="radar-mark">◎</span>
+      <span>RADAR DE<br><b>TALENTOS</b></span>
+    </a>
+    <p class="brand-sub">Inteligência de mercado</p>
+    <nav aria-label="Menu principal">
+      <span class="nav-label">PAINÉIS</span>
+      <a href="/">◉ &nbsp; Radar de Talentos</a>
+      <a aria-current="page" href="/commercial.html">↗ &nbsp; Oportunidade Comercial</a>
+      <a href="/audience.html">⌖ &nbsp; Audiência geográfica</a>
+      <span class="nav-label">NESTE PAINEL</span>
+      <a href="#overview">▣ &nbsp; Visão geral &amp; Filtros</a>
+      <a href="#ranking">★ &nbsp; Artistas em ascensão</a>
+      <a href="#profile">▤ &nbsp; Ficha &amp; 4 Mídias</a>
+      <a href="#compatibility-simulator">⚡ &nbsp; Compatibilidade Artista × Cidade</a>
+      <a href="#city-insights">⌖ &nbsp; Cidades por mídia</a>
+      <a href="/events.html#operations">⟳ &nbsp; Sincronização</a>
+      <span class="nav-label">ADMINISTRAÇÃO</span>
+      <a href="/events.html">▥ &nbsp; Tendências das ticketeiras</a>
+      <a href="/acquisition.html">⚙ &nbsp; Motor de Dados</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="overview" id="overview">
+      <div class="commercial-topbar">
+        <div>
+          <span class="eyebrow">Inteligência comercial / Descoberta de talentos</span>
+          <h1>Oportunidade Comercial</h1>
+        </div>
+        <div class="compat-topbar-actions">
+          <p>Identifique artistas em crescimento (pequeno, médio e grande porte), mídia de maior tração e compatibilidade por cidade.</p>
+          <button type="button" class="search-trigger" id="open-search" aria-label="Buscar no Radar">
+            <span>⌕ Buscar Artista / Cidade</span>
+            <kbd>Ctrl K</kbd>
+          </button>
+        </div>
+      </div>
+
+      <form id="commercial-filters" class="filter-panel">
+        <div class="filters">
+          <label>Mídia
+            <select name="network">
+              <option value="all" selected>Todas as mídias</option>
+              <option value="Instagram">Instagram</option>
+              <option value="YouTube">YouTube</option>
+              <option value="Spotify">Spotify</option>
+              <option value="TikTok">TikTok</option>
+            </select>
+          </label>
+          <label>Indicador
+            <select name="metric"></select>
+          </label>
+          <label>Janela
+            <select name="days">
+              <option value="7">7 dias</option>
+              <option value="30" selected>30 dias</option>
+              <option value="90">90 dias</option>
+            </select>
+          </label>
+          <label>Porte
+            <select name="size">
+              <option value="">Todos os portes</option>
+              <option value="small">Pequeno (até 9.999)</option>
+              <option value="medium">Médio (10 mil a 99.999)</option>
+              <option value="large">Grande (100 mil+)</option>
+              <option value="unknown">Indisponível</option>
+            </select>
+          </label>
+          <label>Modalidade
+            <select name="modality"><option value="">Todas</option></select>
+          </label>
+          <label>Ordenar por
+            <select name="order">
+              <option value="growth_pct">Crescimento %</option>
+              <option value="growth">Crescimento absoluto</option>
+              <option value="value">Valor atual</option>
+            </select>
+          </label>
+          <label>Tendência
+            <select name="trend">
+              <option value="">Todas</option>
+              <option value="growing">Em crescimento</option>
+              <option value="declining">Em queda</option>
+              <option value="unknown">Sem histórico</option>
+            </select>
+          </label>
+          <label>Artista
+            <input name="q" type="search" value="">
+          </label>
+        </div>
+        <button type="submit">Consultar</button>
+      </form>
+
+      <p id="message" role="status"></p>
+      <div class="kpis" id="commercial-kpis"></div>
+    </section>
+
+    <div class="commercial-grid">
+      <section id="ranking">
+        <h2>Ranking de oportunidades</h2>
+        <p>Selecione um artista para inspecionar as 4 mídias, evolução em 7/30/90 dias e praças em ascensão.</p>
+        <div class="scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Artista / Porte</th>
+                <th>Atual</th>
+                <th>Variação</th>
+                <th>%</th>
+              </tr>
+            </thead>
+            <tbody id="commercial-rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="profile">
+        <h2>Ficha do artista &amp; Desempenho nas 4 Mídias</h2>
+        <div id="commercial-profile"><p>Selecione uma atração no ranking.</p></div>
+        <div id="strategic-strip" class="strategic-strip"></div>
+        <div id="commercial-chart"></div>
+        <h3>Crescimento e praça principal por mídia</h3>
+        <div id="network-cards" class="insight-grid" aria-live="polite"></div>
+        <h3>Demais indicadores monitorados</h3>
+        <div id="commercial-other"></div>
+      </section>
+    </div>
+
+    <section id="compatibility-simulator">
+      <div class="city-header">
+        <div>
+          <h2>Simulador de Compatibilidade Comercial: Artista × Cidade (Viabilidade para Vendas)</h2>
+          <p>Cruze as 4 mídias do artista com a audiência da cidade, a bacia regional por raio (km), a afinidade da categoria e a agenda local de eventos.</p>
+        </div>
+      </div>
+      <form id="compatibility-form" class="compat-form">
+        <label>Artista / Talento
+          <input name="q" id="compat-artist" list="compat-artists-list" value="" autocomplete="off">
+          <datalist id="compat-artists-list"></datalist>
+        </label>
+        <label>Cidade / Praça (Nome ou Cidade/UF)
+          <input name="cityQuery" id="compat-city" list="compat-cities-list" value="" autocomplete="off">
+          <datalist id="compat-cities-list"></datalist>
+        </label>
+        <label>Bacia Regional (Raio)
+          <select name="radius" id="compat-radius">
+            <option value="0">Somente o município (0 km)</option>
+            <option value="50">Raio de 50 km</option>
+            <option value="80" selected>Raio de 80 km (Cidades vizinhas)</option>
+            <option value="100">Raio de 100 km</option>
+            <option value="150">Raio de 150 km</option>
+          </select>
+        </label>
+        <label>Janela de Tração
+          <select name="days" id="compat-days">
+            <option value="7">7 dias</option>
+            <option value="30" selected>30 dias</option>
+            <option value="90">90 dias</option>
+          </select>
+        </label>
+        <button type="submit">Simular Viabilidade</button>
+      </form>
+      <p id="compat-status" role="status"></p>
+      <div id="compatibility-result" aria-live="polite"></div>
+    </section>
+
+    <section id="city-insights">
+      <div class="city-header">
+        <div>
+          <h2>Cidades com maior audiência por mídia</h2>
+          <p>Concentração municipal e comparativo de crescimento entre períodos adjacentes em cada plataforma.</p>
+        </div>
+        <div class="city-filters">
+          <label>Escopo
+            <select id="city-scope">
+              <option value="all">Todos os artistas com dados</option>
+              <option value="artist" disabled>Artista selecionado</option>
+            </select>
+          </label>
+          <label>Região
+            <select id="city-region">
+              <option value="">Brasil inteiro</option>
+              <option>Norte</option>
+              <option>Nordeste</option>
+              <option>Centro-Oeste</option>
+              <option>Sudeste</option>
+              <option>Sul</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <p id="city-status" role="status"></p>
+      <div id="city-cards" class="city-grid"></div>
+    </section>
+
+    <section>
+      <h2>Como interpretar</h2>
+      <p>Porte é uma faixa operacional configurada pelo indicador principal da mídia (Pequeno até 9.999, Médio de 10 mil a 99.999, Grande 100 mil+), não uma classificação de cachê. Crescimento compara a mesma conta, métrica e fonte com observações nos limites do período (7, 30 ou 90 dias). Para audiência regional detalhada no mapa, acesse <a href="/audience.html">Audiência geográfica</a>. Para oferta observada em plataformas de eventos, consulte <a href="/events.html">Tendências de eventos</a>.</p>
+    </section>
+  </main>
+
+  <dialog aria-labelledby="search-title" class="palette" id="command-palette">
+    <div class="palette-head">
+      <h2 id="search-title">Buscar Artista e Simular Cidade</h2>
+      <button aria-label="Fechar pesquisa" class="secondary-button" id="close-search" type="button">Esc</button>
+    </div>
+    <label for="global-search">Digite um artista ou "Artista em Cidade / UF"</label>
+    <input autocomplete="off" id="global-search" value="" type="search">
+    <div class="palette-results" id="search-results"></div>
+  </dialog>
+</body>
+</html>

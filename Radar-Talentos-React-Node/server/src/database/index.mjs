@@ -1,3 +1,4 @@
+import {ensurePersistentPath} from '../persistence.mjs';
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
@@ -13,6 +14,7 @@ export function databasePath() {
 }
 
 export function openDatabase(filename = databasePath()) {
+  ensurePersistentPath(filename,'RADAR_DATABASE_PATH');
   if (filename !== ':memory:') mkdirSync(dirname(resolve(filename)), { recursive: true });
   const db = new DatabaseSync(filename);
   try {
@@ -39,6 +41,19 @@ export function openDatabase(filename = databasePath()) {
         throw error;
       }
     }
+    db.exec(`CREATE TABLE IF NOT EXISTS metric_current (
+      account_id TEXT NOT NULL,
+      talent_id TEXT NOT NULL REFERENCES talents(id) ON DELETE CASCADE,
+      network TEXT NOT NULL CHECK(network IN ('Instagram','YouTube','Spotify','TikTok')),
+      metric TEXT NOT NULL,
+      value INTEGER CHECK(value IS NULL OR value >= 0),
+      observed_on TEXT,
+      collected_at TEXT NOT NULL,
+      source TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'available' CHECK(status IN ('available','pending_source','pending_auth','error')),
+      status_detail TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY(account_id, metric)
+    ) STRICT;`);
     return db;
   } catch (error) {
     db.close();
